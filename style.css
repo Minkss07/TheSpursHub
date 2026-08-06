@@ -1,0 +1,193 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    color: #222;
+}
+
+/* --- Top bar & menu button --- */
+
+.menu-btn {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1001;
+    background: #132257;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 1.3rem;
+    cursor: pointer;
+}
+
+/* --- Slide-out sidebar --- */
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    width: 260px;
+    height: 100%;
+    background: #132257;
+    padding-top: 70px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+}
+
+.sidebar.open {
+    left: 0;
+}
+
+.sidebar a {
+    display: block;
+    color: white;
+    text-decoration: none;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: rgba(255,255,255,0.12);
+}
+
+.overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+}
+
+.overlay.open {
+    display: block;
+}
+
+/* --- Header --- */
+
+header {
+    background-color: #132257;
+    color: white;
+    text-align: center;
+    padding: 50px 20px 40px;
+}
+
+header h1 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+/* --- Content sections --- */
+
+section {
+    max-width: 600px;
+    margin: 30px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+h2 {
+    margin-bottom: 15px;
+    color: #132257;
+}
+
+#countdown {
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-align: center;
+    color: #132257;
+}
+
+.result {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.result:last-child {
+    border-bottom: none;
+}
+
+/* --- Predict the Score widget --- */
+
+.predict-box {
+    text-align: center;
+}
+
+.predict-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+    font-weight: bold;
+}
+
+.predict-inputs input {
+    width: 55px;
+    padding: 8px;
+    font-size: 1.1rem;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.predict-box button {
+    background: #132257;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.predict-box button:hover {
+    background: #1c3175;
+}
+
+.predict-status {
+    margin-top: 12px;
+    font-size: 0.95rem;
+    color: #444;
+}
+
+.prediction-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.95rem;
+}
+
+.tag {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: white;
+}
+
+.tag.correct { background: #2e8b57; }
+.tag.wrong { background: #c0392b; }
+.tag.pending { background: #999; }
+
+.accuracy-summary {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 15px;
+    color: #132257;
+}
