@@ -95,7 +95,170 @@ function outcomeOf(home, away) {
     return "draw";
 }
 
-function submitResult(id) {
+/* ---------- Teams & crest badges ---------- */
+/* No official crest images are used (licensed club property) —
+   these are styled placeholder badges using each club's real colours. */
+
+const TEAMS = {
+    tottenham: { name: "Tottenham Hotspur", color: "#132257", initials: "THFC" },
+    chelsea:   { name: "Chelsea",           color: "#034694", initials: "CFC" },
+    sydney:    { name: "Sydney FC",         color: "#0054a6", initials: "SYD" },
+    auckland:  { name: "Auckland FC",       color: "#0b0b0b", initials: "AFC" },
+    getafe:    { name: "Getafe CF",         color: "#005999", initials: "GET" }
+};
+
+function crestBadge(teamKey, size) {
+    size = size || 44;
+    const t = TEAMS[teamKey];
+    if (!t) return "";
+    return `<div class="crest" style="width:${size}px;height:${size}px;background:${t.color};font-size:${size * 0.28}px;">${t.initials}</div>`;
+}
+
+function renderFixtureCrests(elementId, teamA, teamB) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.innerHTML = `
+        ${crestBadge(teamA, 56)}
+        <span class="vs">vs</span>
+        ${crestBadge(teamB, 56)}
+    `;
+}
+
+/* ---------- Recent match data ---------- */
+/* Sourced from match reports. Lineup info is included where reliably
+   reported; where it wasn't available, a note says so instead of guessing. */
+
+const MATCHES = [
+    {
+        id: "auckland-2026",
+        opponent: "auckland",
+        date: "26 July 2026",
+        competition: "Pre-season friendly, Eden Park",
+        scoreline: "Auckland FC 0 - 2 Tottenham",
+        resultTag: "W",
+        goals: [
+            { teamKey: "tottenham", scorer: "Scarlett", assist: null, minute: "—" },
+            { teamKey: "tottenham", scorer: "Richarlison", assist: "Mateus Fernandes → Mathys Tel", minute: "—" }
+        ],
+        lineupNote: "Full lineup and exact goal minutes weren't clearly reported for this match — happy to add them if you have a source."
+    },
+    {
+        id: "sydney-2026",
+        opponent: "sydney",
+        date: "29 July 2026",
+        competition: "Sydney Super Cup — Tottenham won 4-2 on penalties",
+        scoreline: "Tottenham 1 - 1 Sydney FC",
+        resultTag: "W",
+        goals: [
+            { teamKey: "tottenham", scorer: "Mathys Tel", assist: "Free-kick", minute: 29 },
+            { teamKey: "sydney", scorer: "Takahiro Sekine", assist: null, minute: 55 }
+        ],
+        penalties: "Tottenham scored: Williams-Barnett, Tonali, Robertson, Yang Min-Hyeok (missed: Donley). Sydney FC scored: Popovic, Toure (missed: Lacey, Popovic).",
+        lineups: {
+            tottenham: {
+                starting: ["Martin Dúbravka", "Tye Hall", "Malcolm Hardy", "Ben Davies", "Kyerematen", "Archie Gray (c)", "Lucas Bergvall", "Conor Gallagher", "Manor Solomon", "Richarlison", "Mathys Tel"],
+                subs: ["Andy Robertson (on 65, for Hall)", "Tingey (on 78, for Hardy)", "Kota Takai (on 46, for Davies)", "Byrne (on 78, for Kyerematen)", "Jamie Donley (on 65, for Gray)", "Sandro Tonali (on 46, for Bergvall)", "Melia (on 65, for Gallagher)", "Yang Min-Hyeok (on 65, for Solomon)", "Scarlett (on 65, for Richarlison)", "Williams-Barnett (on 46, for Tel)"]
+            },
+            sydney: {
+                starting: ["Gus Hoefsloot", "Grant (c)", "A. Popovic", "Courtney-Perkins", "Garcuccio", "Kamijo", "Youlley", "De Jesus", "Quintal", "Sekine", "Macallister"],
+                subs: ["Dyer (on 78, for Grant)", "Lancaster (on 74, for Kamijo)", "Alfaro (on 78, for Youlley)", "Toure (on 65, for De Jesus)", "France (on 74, for Quintal)", "Lacey (on 65, for Sekine)", "G. Popovic (on 65, for Macallister)"]
+            }
+        }
+    },
+    {
+        id: "chelsea-2026",
+        opponent: "chelsea",
+        date: "1 August 2026",
+        competition: "Sydney Super Cup",
+        scoreline: "Chelsea 1 - 2 Tottenham",
+        resultTag: "W",
+        goals: [
+            { teamKey: "tottenham", scorer: "Sandro Tonali", assist: "Manor Solomon", minute: 17 },
+            { teamKey: "chelsea", scorer: "Estêvão", assist: null, minute: 21 },
+            { teamKey: "tottenham", scorer: "Richarlison", assist: "Jamie Donley (shot off the post)", minute: "90+2" }
+        ],
+        note: "Kevin Danso was sent off 3 minutes into the second half; Tottenham played over 40 minutes with 10 men.",
+        lineups: {
+            tottenham: {
+                starting: ["Antonín Kinsky", "Archie Gray", "Jan Paul van Hecke", "Ben Davies", "Andy Robertson", "Lucas Bergvall", "Sandro Tonali", "Conor Gallagher", "Manor Solomon", "Dominic Solanke", "Mathys Tel"],
+                subs: ["Kevin Danso (on 46, for van Hecke)", "Kota Takai (on 81, for Davies)", "Kyerematen (on 72, for Robertson)", "Hall (on 72, for Bergvall)", "Jamie Donley (on 82, for Tonali)", "Hardy (on 54, for Gallagher)", "Moore (on 67, for Solomon)", "Richarlison (on 46, for Solanke)", "Williams-Barnett (on 76, for Tel)"]
+            },
+            chelsea: {
+                starting: ["Teddy Sharman-Lowe", "Marco Palestra", "Wesley Fofana", "Levi Colwill (c)", "Jorrel Hato", "Dario Essugo", "Romeo Lavia", "Estêvão", "Cole Palmer", "Jamie Gittens", "João Pedro"],
+                subs: ["Acheampong (on 80, for Palestra)", "Tosin (on 80, for Fofana)", "Sarr (on 80, for Colwill)", "Anselmino (on 62, for Hato)", "Watson (on 80, for Essugo)", "Nicoll-Jazuli (on 46, for Lavia)", "Satpayev (on 69, for Estêvão)", "Walsh (on 80, for Palmer)", "Kellyman (on 80, for Gittens)", "Delap (on 80, for João Pedro)"]
+            }
+        }
+    }
+];
+
+function renderRecentResults() {
+    const list = document.getElementById("recent-results-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+    // show most recent first
+    MATCHES.slice().reverse().forEach(m => {
+        const row = document.createElement("div");
+        row.className = "result-row";
+        row.onclick = () => openMatchModal(m.id);
+        row.innerHTML = `
+            ${crestBadge(m.opponent, 36)}
+            <span class="opponent-name">vs ${TEAMS[m.opponent].name}</span>
+            <span class="score-tag">${m.scoreline.replace("Tottenham", "Spurs").replace(TEAMS[m.opponent].name, "")} ${m.resultTag}</span>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function openMatchModal(matchId) {
+    const match = MATCHES.find(m => m.id === matchId);
+    if (!match) return;
+
+    const content = document.getElementById("modal-content");
+
+    let goalsHtml = match.goals.map(g => `
+        <div class="goal-entry">
+            <span class="minute">${g.minute}'</span>${g.scorer} (${TEAMS[g.teamKey].name})
+            ${g.assist ? `<span class="assist">Assist: ${g.assist}</span>` : ""}
+        </div>
+    `).join("");
+
+    let lineupsHtml = "";
+    if (match.lineups) {
+        Object.keys(match.lineups).forEach(teamKey => {
+            const l = match.lineups[teamKey];
+            lineupsHtml += `
+                <h3>${TEAMS[teamKey].name} — Starting XI</h3>
+                <div class="lineup-entry">${l.starting.join(", ")}</div>
+                <h3>${TEAMS[teamKey].name} — Substitutions</h3>
+                <div class="lineup-entry">${l.subs.join(", ")}</div>
+            `;
+        });
+    } else if (match.lineupNote) {
+        lineupsHtml = `<p class="lineup-note">${match.lineupNote}</p>`;
+    }
+
+    content.innerHTML = `
+        <div class="fixture-teams">
+            ${crestBadge("tottenham", 60)}
+            <span class="vs">${match.scoreline}</span>
+            ${crestBadge(match.opponent, 60)}
+        </div>
+        <p style="text-align:center; color:#666; margin-bottom:10px;">${match.date} — ${match.competition}</p>
+        ${match.note ? `<p class="lineup-note" style="text-align:center;">${match.note}</p>` : ""}
+        ${match.penalties ? `<p style="font-size:0.9rem; text-align:center; margin:10px 0;"><strong>Penalties:</strong> ${match.penalties}</p>` : ""}
+        <h3>Goals</h3>
+        ${goalsHtml}
+        ${lineupsHtml}
+    `;
+
+    document.getElementById("match-modal-overlay").classList.add("open");
+}
+
+function closeMatchModal(event) {
+    if (event && event.target.id !== "match-modal-overlay" && !event.target.classList.contains("modal-close")) return;
+    document.getElementById("match-modal-overlay").classList.remove("open");
+}
     const home = parseInt(document.getElementById(`actualHome-${id}`).value, 10);
     const away = parseInt(document.getElementById(`actualAway-${id}`).value, 10);
     if (isNaN(home) || isNaN(away)) return;
