@@ -20,6 +20,8 @@
         <p>Everything about the club</p>
     </header>
 
+    <div id="club-crest" style="display:flex; justify-content:center; margin-top:20px;"></div>
+
     <section>
         <h2>Club Facts</h2>
         <div class="result"><span>Founded</span><span>1882</span></div>
@@ -38,6 +40,9 @@
     </section>
 
     <script src="script.js"></script>
+    <script>
+        document.getElementById("club-crest").innerHTML = crestBadge("tottenham", 70);
+    </script>
 
 </body>
 </html>

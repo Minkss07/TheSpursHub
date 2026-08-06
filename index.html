@@ -21,7 +21,9 @@
     </header>
 
     <section>
-        <h2>Next Fixture: Tottenham vs Getafe</h2>
+        <h2>Next Fixture</h2>
+        <div class="fixture-teams" id="next-fixture-crests"></div>
+        <p style="text-align:center; font-weight:bold;">Tottenham vs Getafe</p>
         <p id="countdown">Loading...</p>
         <p style="text-align:center; margin-top:10px; color:#666;">Saturday 8 August 2026, 3:00pm — Friendly</p>
     </section>
@@ -44,10 +46,16 @@
 
     <section>
         <h2>Recent Results</h2>
-        <div class="result"><span>vs Chelsea</span><span>2 - 1 W</span></div>
-        <div class="result"><span>vs Sydney FC</span><span>1 - 1 (W 4-2 pens)</span></div>
-        <div class="result"><span>vs Auckland FC</span><span>2 - 0 W</span></div>
+        <p style="font-size:0.85rem; color:#888; margin-bottom:10px;">Tap a match for goals, assists, and lineups</p>
+        <div id="recent-results-list"></div>
     </section>
+
+    <div class="modal-overlay" id="match-modal-overlay" onclick="closeMatchModal(event)">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeMatchModal()">×</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
     <script>
@@ -55,6 +63,8 @@
         startCountdown(matchDate);
         initPredictWidget("Getafe", matchDate);
         renderPredictionHistory();
+        renderFixtureCrests("next-fixture-crests", "tottenham", "getafe");
+        renderRecentResults();
     </script>
 
 </body>
