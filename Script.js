@@ -259,6 +259,7 @@ function closeMatchModal(event) {
     if (event && event.target.id !== "match-modal-overlay" && !event.target.classList.contains("modal-close")) return;
     document.getElementById("match-modal-overlay").classList.remove("open");
 }
+function submitResult(id) {
     const home = parseInt(document.getElementById(`actualHome-${id}`).value, 10);
     const away = parseInt(document.getElementById(`actualAway-${id}`).value, 10);
     if (isNaN(home) || isNaN(away)) return;
