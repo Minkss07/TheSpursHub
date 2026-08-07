@@ -364,28 +364,21 @@ function closePlayerModal(event) {
     document.getElementById("player-modal-overlay").classList.remove("open");
 }
 
-/* ---------- Live fixture data (football-data.org) ---------- */
+/* ---------- Live fixture data (via Cloudflare Worker proxy) ---------- */
 /*
-   Free tier: real fixture dates, opponents, and final scores for
-   competitions like the Premier League. It does NOT reliably include
-   goal-by-goal detail (scorer/assist/minute) or lineups on the free
-   plan — those stay manually added for big matches, same as before.
-
-   If the API call fails for any reason (offline, rate limit, CORS),
-   everything falls back to the static data already in this file, so
-   the site never breaks.
+   The actual football-data.org API key lives only inside the Cloudflare
+   Worker (server-side) — it is never sent to or visible from the browser.
+   This site just calls the Worker, which forwards the request and adds
+   the CORS permission browsers need to read the response.
 */
 
-const FOOTBALL_API_TOKEN = "2b8579a1a512447bb01bf95064f44bf5";
-const FOOTBALL_API_BASE = "https://api.football-data.org/v4";
+const PROXY_BASE = "https://spurs-proxy.maxzanotti00.workers.dev";
 const SPURS_TEAM_ID = 73;
 
 async function fetchNextFixtureLive() {
     try {
-        const res = await fetch(`${FOOTBALL_API_BASE}/teams/${SPURS_TEAM_ID}/matches?status=SCHEDULED&limit=1`, {
-            headers: { "X-Auth-Token": FOOTBALL_API_TOKEN }
-        });
-        if (!res.ok) throw new Error(`API responded ${res.status}`);
+        const res = await fetch(`${PROXY_BASE}/next-fixture`);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
         const data = await res.json();
         if (!data.matches || data.matches.length === 0) return null;
 
@@ -407,10 +400,8 @@ async function fetchNextFixtureLive() {
 
 async function fetchRecentResultsLive(count) {
     try {
-        const res = await fetch(`${FOOTBALL_API_BASE}/teams/${SPURS_TEAM_ID}/matches?status=FINISHED&limit=${count}`, {
-            headers: { "X-Auth-Token": FOOTBALL_API_TOKEN }
-        });
-        if (!res.ok) throw new Error(`API responded ${res.status}`);
+        const res = await fetch(`${PROXY_BASE}/recent-results`);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
         const data = await res.json();
         if (!data.matches) return [];
 
