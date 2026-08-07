@@ -265,56 +265,56 @@ function closeMatchModal(event) {
 
 const SQUAD = {
     att: [
-        { name: "Richarlison", pos: "ST", nation: "Brazil", age: 29, shirt: 9 },
-        { name: "Mathys Tel", pos: "LW", nation: "France", age: 21, shirt: 11 },
-        { name: "Dominic Solanke", pos: "ST", nation: "England", age: 28, shirt: 19 },
-        { name: "Mohammed Kudus", pos: "RW", nation: "Ghana", age: 26, shirt: 20 },
-        { name: "Manor Solomon", pos: "LW", nation: "Israel", age: 27, shirt: 27 },
-        { name: "Wilson Odobert", pos: "LW", nation: "France", age: 21, shirt: 28, injury: "Cruciate ligament injury — expected back mid-October 2026" },
-        { name: "Dane Scarlett", pos: "ST", nation: "England", age: 22, shirt: 44 },
-        { name: "Mikey Moore", pos: "LW", nation: "England", age: 18, shirt: 47 },
-        { name: "Min-Hyeok Yang", pos: "LW", nation: "South Korea", age: 20, shirt: 59 }
+        { name: "Richarlison", pos: "ST", nation: "Brazil", age: 29, shirt: 9, value: "€24M" },
+        { name: "Mathys Tel", pos: "LW", nation: "France", age: 21, shirt: 11, value: "€32.5M" },
+        { name: "Dominic Solanke", pos: "ST", nation: "England", age: 28, shirt: 19, value: "€31.6M" },
+        { name: "Mohammed Kudus", pos: "RW", nation: "Ghana", age: 26, shirt: 20, value: "€50.1M" },
+        { name: "Manor Solomon", pos: "LW", nation: "Israel", age: 27, shirt: 27, value: "€10.1M" },
+        { name: "Wilson Odobert", pos: "LW", nation: "France", age: 21, shirt: 28, value: "€21.7M", injury: "Cruciate ligament injury — expected back mid-October 2026" },
+        { name: "Dane Scarlett", pos: "ST", nation: "England", age: 22, shirt: 44, value: "€1.4M" },
+        { name: "Mikey Moore", pos: "LW", nation: "England", age: 18, shirt: 47, value: "€16.2M" },
+        { name: "Min-Hyeok Yang", pos: "LW", nation: "South Korea", age: 20, shirt: 59, value: "€5.5M" }
     ],
     cm: [
-        { name: "Xavi Simons", pos: "AM", nation: "Netherlands", age: 23, shirt: 7, injury: "Cruciate ligament injury — expected back early January 2027" },
-        { name: "Conor Gallagher", pos: "CM", nation: "England", age: 26, shirt: 8 },
-        { name: "James Maddison", pos: "LW", nation: "England", age: 29, shirt: 10 },
-        { name: "Archie Gray", pos: "DM", nation: "England", age: 20, shirt: 14 },
-        { name: "Lucas Bergvall", pos: "CM", nation: "Sweden", age: 20, shirt: 15 },
-        { name: "Sandro Tonali", pos: "CM", nation: "Italy", age: 26, shirt: 16 },
-        { name: "Mateus Fernandes", pos: "CM", nation: "Portugal", age: 22, shirt: 18 },
-        { name: "Dejan Kulusevski", pos: "ST", nation: "Sweden", age: 26, shirt: 21, injury: "Knee injury — return date uncertain" },
-        { name: "Pape Sarr", pos: "CM", nation: "Senegal", age: 23, shirt: 29 },
-        { name: "Rodrigo Bentancur", pos: "DM", nation: "Uruguay", age: 29, shirt: 30 },
-        { name: "Callum Olusesi", pos: "CM", nation: "England", age: 19 }
+        { name: "Xavi Simons", pos: "CAM", nation: "Netherlands", age: 23, shirt: 7, value: "€52.4M", injury: "Cruciate ligament injury — expected back early January 2027" },
+        { name: "Conor Gallagher", pos: "CM", nation: "England", age: 26, shirt: 8, value: "€34.7M" },
+        { name: "James Maddison", pos: "CAM", nation: "England", age: 29, shirt: 10, value: "€30.2M", height: "175cm", foot: "Right" },
+        { name: "Archie Gray", pos: "CDM", nation: "England", age: 20, shirt: 14, value: "€47.1M" },
+        { name: "Lucas Bergvall", pos: "CM", nation: "Sweden", age: 20, shirt: 15, value: "€46.2M" },
+        { name: "Sandro Tonali", pos: "CM", nation: "Italy", age: 26, shirt: 16, value: "€59.9M" },
+        { name: "Mateus Fernandes", pos: "CM", nation: "Portugal", age: 22, shirt: 18, value: "€28.7M" },
+        { name: "Dejan Kulusevski", pos: "RW", nation: "Sweden", age: 26, shirt: 21, value: "€40.6M", height: "186cm", foot: "Left", injury: "Knee injury — return date uncertain" },
+        { name: "Pape Sarr", pos: "CM", nation: "Senegal", age: 23, shirt: 29, value: "€35.3M" },
+        { name: "Rodrigo Bentancur", pos: "CDM", nation: "Uruguay", age: 29, shirt: 30, value: "€17.1M" },
+        { name: "Callum Olusesi", pos: "CM", nation: "England", age: 19, value: "€432K" }
     ],
     def: [
-        { name: "Andrew Robertson", pos: "LB", nation: "Scotland", age: 32, shirt: 3 },
-        { name: "Kevin Danso", pos: "CB", nation: "Austria", age: 27, shirt: 4 },
-        { name: "Jan Paul van Hecke", pos: "CB", nation: "Netherlands", age: 26, shirt: 6 },
-        { name: "Destiny Udogie", pos: "LB", nation: "Italy", age: 23, shirt: 13 },
-        { name: "Cristian Romero", pos: "CB", nation: "Argentina", age: 28, shirt: 17 },
-        { name: "Pedro Porro", pos: "RB", nation: "Spain", age: 26, shirt: 23 },
-        { name: "Djed Spence", pos: "LB", nation: "England", age: 25, shirt: 24 },
-        { name: "Ben Davies", pos: "CB", nation: "Wales", age: 33, shirt: 33 },
-        { name: "Micky van de Ven", pos: "CB", nation: "Netherlands", age: 25, shirt: 37 },
+        { name: "Andrew Robertson", pos: "LB", nation: "Scotland", age: 32, shirt: 3, value: "€7.8M" },
+        { name: "Kevin Danso", pos: "CB", nation: "Austria", age: 27, shirt: 4, value: "€19.3M" },
+        { name: "Jan Paul van Hecke", pos: "CB", nation: "Netherlands", age: 26, shirt: 6, value: "€35.8M" },
+        { name: "Destiny Udogie", pos: "LB", nation: "Italy", age: 23, shirt: 13, value: "€37.3M" },
+        { name: "Cristian Romero", pos: "CB", nation: "Argentina", age: 28, shirt: 17, value: "€46.7M" },
+        { name: "Pedro Porro", pos: "RB", nation: "Spain", age: 26, shirt: 23, value: "€40.5M" },
+        { name: "Djed Spence", pos: "LB", nation: "England", age: 25, shirt: 24, value: "€31.1M" },
+        { name: "Ben Davies", pos: "CB", nation: "Wales", age: 33, shirt: 33, value: "€2M" },
+        { name: "Micky van de Ven", pos: "CB", nation: "Netherlands", age: 25, shirt: 37, value: "€59.5M" },
         { name: "Souza", pos: "LB", nation: "Brazil", age: 20, shirt: 38 },
-        { name: "Ashley Phillips", pos: "CB", nation: "Wales", age: 21 },
-        { name: "Marcos Senesi", pos: "CB", nation: "Argentina", age: 29 },
+        { name: "Ashley Phillips", pos: "CB", nation: "Wales", age: 21, value: "€9.2M" },
+        { name: "Marcos Senesi", pos: "CB", nation: "Argentina", age: 29, value: "€16.9M" },
         { name: "Junai Byfield", pos: "CB", nation: "England", age: 17, shirt: 67 }
     ],
     gk: [
-        { name: "Guglielmo Vicario", pos: "GK", nation: "Italy", age: 29, shirt: 1 },
-        { name: "Antonín Kinsky", pos: "GK", nation: "Czech Republic", age: 23, shirt: 31 },
-        { name: "Martin Dúbravka", pos: "GK", nation: "Slovakia", age: 37, shirt: 39 },
-        { name: "Brandon Austin", pos: "GK", nation: "England", age: 27, shirt: 40 }
+        { name: "Guglielmo Vicario", pos: "GK", nation: "Italy", age: 29, shirt: 1, value: "€21.6M" },
+        { name: "Antonín Kinsky", pos: "GK", nation: "Czech Republic", age: 23, shirt: 31, value: "€15.1M" },
+        { name: "Martin Dúbravka", pos: "GK", nation: "Slovakia", age: 37, shirt: 39, value: "€769.6K" },
+        { name: "Brandon Austin", pos: "GK", nation: "England", age: 27, shirt: 40, value: "€681.4K" }
     ]
 };
 
 function posPillClass(pos) {
     if (pos === "GK") return "gk";
     if (["CB", "LB", "RB"].includes(pos)) return "def";
-    if (["CM", "DM", "AM"].includes(pos)) return "mid";
+    if (["CM", "CDM", "CAM"].includes(pos)) return "mid";
     return "fwd"; // ST, LW, RW
 }
 
@@ -345,6 +345,15 @@ function openPlayerModal(groupKey, index) {
         </div>
         <h3>Position</h3>
         <div class="lineup-entry">${player.pos}</div>
+        <h3>Player Details</h3>
+        <div class="lineup-entry">
+            Nationality: ${player.nation}<br>
+            Age: ${player.age}
+            ${player.shirt ? `<br>Squad number: ${player.shirt}` : ""}
+            ${player.height ? `<br>Height: ${player.height}` : ""}
+            ${player.foot ? `<br>Preferred foot: ${player.foot}` : ""}
+            ${player.value ? `<br>Estimated market value: ${player.value}` : ""}
+        </div>
         ${player.injury ? `<h3>Injury Status</h3><div class="lineup-entry">${player.injury}</div>` : ""}
     `;
     document.getElementById("player-modal-overlay").classList.add("open");
