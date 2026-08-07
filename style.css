@@ -485,10 +485,22 @@ section h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
+    padding: 10px 6px;
     border-bottom: 1px solid var(--line);
     font-family: 'Oswald', sans-serif;
     letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s ease, padding-left 0.15s ease;
+}
+
+.player-row:hover {
+    background: rgba(255,255,255,0.04);
+    padding-left: 12px;
+}
+
+.player-row:active {
+    background: var(--accent-soft);
 }
 
 .player-row:last-child {
