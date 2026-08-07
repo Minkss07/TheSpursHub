@@ -1,3 +1,26 @@
+/* =========================================================
+   Spurs Hub — "Matchday Floodlights" theme
+   Dark stadium-night navy, amber floodlight-glow accents,
+   scoreboard-style countdown, monospace for match data.
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+    --bg: #0a0f26;
+    --bg-glow: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(240,168,60,0.14), transparent 60%);
+    --surface: #131b3f;
+    --surface-2: #1a2350;
+    --line: rgba(255,255,255,0.08);
+    --text: #f2f4fb;
+    --text-muted: #8d96c2;
+    --accent: #f0a83c;
+    --accent-soft: rgba(240,168,60,0.15);
+    --pitch: #2fa36b;
+    --pitch-soft: rgba(47,163,107,0.16);
+    --loss: #d9534f;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,25 +28,38 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-    color: #222;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    background-image: var(--bg-glow);
+    background-attachment: fixed;
+    color: var(--text);
+    padding-bottom: 60px;
+}
+
+h1, h2, h3 {
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
 }
 
 /* --- Top bar & menu button --- */
 
 .menu-btn {
     position: fixed;
-    top: 15px;
-    left: 15px;
+    top: 18px;
+    left: 18px;
     z-index: 1001;
-    background: #132257;
-    color: white;
-    border: none;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--line);
     padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 1.3rem;
+    border-radius: 8px;
+    font-size: 1.2rem;
     cursor: pointer;
+    backdrop-filter: blur(6px);
+}
+
+.menu-btn:hover {
+    border-color: var(--accent);
 }
 
 /* --- Slide-out sidebar --- */
@@ -31,11 +67,13 @@ body {
 .sidebar {
     position: fixed;
     top: 0;
-    left: -260px;
-    width: 260px;
+    left: -280px;
+    width: 280px;
     height: 100%;
-    background: #132257;
-    padding-top: 70px;
+    background: rgba(10, 15, 38, 0.97);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid var(--line);
+    padding-top: 80px;
     transition: left 0.3s ease;
     z-index: 1000;
 }
@@ -46,25 +84,34 @@ body {
 
 .sidebar a {
     display: block;
-    color: white;
+    color: var(--text-muted);
     text-decoration: none;
-    padding: 16px 24px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 16px 28px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--line);
 }
 
-.sidebar a:hover,
+.sidebar a:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+}
+
 .sidebar a.active {
-    background: rgba(255,255,255,0.12);
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
 }
 
 .overlay {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.4);
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
     z-index: 999;
 }
 
@@ -75,52 +122,114 @@ body {
 /* --- Header --- */
 
 header {
-    background-color: #132257;
-    color: white;
     text-align: center;
-    padding: 50px 20px 40px;
+    padding: 70px 20px 30px;
+    position: relative;
+}
+
+header p.eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-bottom: 10px;
 }
 
 header h1 {
-    font-size: 2rem;
-    margin-bottom: 5px;
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1;
+}
+
+header .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 10px;
 }
 
 /* --- Content sections --- */
 
 section {
-    max-width: 600px;
-    margin: 30px auto;
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    max-width: 620px;
+    margin: 26px auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 26px;
+    border-radius: 14px;
 }
 
-h2 {
-    margin-bottom: 15px;
-    color: #132257;
+section h2 {
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line);
+}
+
+/* --- Scoreboard countdown (signature element) --- */
+
+.scoreboard {
+    background: #050814;
+    border: 1px solid var(--accent-soft);
+    border-radius: 10px;
+    padding: 22px 16px;
+    text-align: center;
+    box-shadow: inset 0 0 40px rgba(240,168,60,0.06);
+    margin-top: 4px;
 }
 
 #countdown {
-    font-size: 1.8rem;
-    font-weight: bold;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(240,168,60,0.55);
+}
+
+.kickoff-line {
     text-align: center;
-    color: #132257;
+    margin-top: 12px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
 }
 
-.result {
+/* --- Fixture crests --- */
+
+.fixture-teams {
     display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 14px;
 }
 
-.result:last-child {
-    border-bottom: none;
+.fixture-teams .vs {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 1px;
 }
 
-/* --- Predict the Score widget --- */
+.crest {
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-family: 'Oswald', sans-serif;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.06), 0 0 18px rgba(240,168,60,0.18);
+}
+
+/* --- Predict the Score --- */
 
 .predict-box {
     text-align: center;
@@ -131,107 +240,110 @@ h2 {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    margin: 15px 0;
-    font-weight: bold;
+    margin: 18px 0;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
 }
 
 .predict-inputs input {
     width: 55px;
-    padding: 8px;
+    padding: 10px;
     font-size: 1.1rem;
+    font-family: 'JetBrains Mono', monospace;
     text-align: center;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    background: #050814;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
 }
 
-.predict-box button {
-    background: #132257;
-    color: white;
+.predict-inputs input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.predict-box button, .prediction-entry button {
+    background: var(--accent);
+    color: #1a1200;
     border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 1rem;
+    padding: 11px 24px;
+    border-radius: 8px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
 }
 
-.predict-box button:hover {
-    background: #1c3175;
+.predict-box button:hover, .prediction-entry button:hover {
+    filter: brightness(1.08);
 }
 
 .predict-status {
-    margin-top: 12px;
-    font-size: 0.95rem;
-    color: #444;
+    margin-top: 14px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .prediction-entry {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #eee;
-    font-size: 0.95rem;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.88rem;
+    font-family: 'JetBrains Mono', monospace;
+    gap: 10px;
+}
+
+.prediction-entry input {
+    background: #050814;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 4px;
 }
 
 .tag {
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
     color: white;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
-.tag.correct { background: #2e8b57; }
-.tag.wrong { background: #c0392b; }
-.tag.pending { background: #999; }
+.tag.correct { background: var(--pitch); }
+.tag.wrong { background: var(--loss); }
+.tag.pending { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--line); }
 
 .accuracy-summary {
     text-align: center;
-    font-weight: bold;
-    margin-top: 15px;
-    color: #132257;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 16px;
+    color: var(--accent);
+    font-size: 0.9rem;
 }
 
-/* --- Crest badges (styled placeholders) --- */
-
-.crest {
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    flex-shrink: 0;
-    letter-spacing: -0.5px;
-}
-
-.fixture-teams {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin-bottom: 10px;
-}
-
-.fixture-teams .vs {
-    font-weight: bold;
-    color: #666;
-}
-
-/* --- Clickable recent results --- */
+/* --- Recent results --- */
 
 .result-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 6px;
-    border-bottom: 1px solid #eee;
+    gap: 14px;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--line);
     cursor: pointer;
+    border-radius: 8px;
     transition: background 0.15s ease;
 }
 
 .result-row:hover {
-    background: #f4f6fb;
+    background: rgba(255,255,255,0.03);
 }
 
 .result-row:last-child {
@@ -240,12 +352,15 @@ h2 {
 
 .result-row .opponent-name {
     flex-grow: 1;
-    font-weight: 600;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+    font-size: 0.95rem;
 }
 
 .result-row .score-tag {
-    font-size: 0.9rem;
-    color: #444;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 /* --- Match detail modal --- */
@@ -253,11 +368,10 @@ h2 {
 .modal-overlay {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.55);
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(3,5,15,0.8);
+    backdrop-filter: blur(4px);
     z-index: 2000;
     align-items: center;
     justify-content: center;
@@ -269,53 +383,141 @@ h2 {
 }
 
 .modal-box {
-    background: white;
-    border-radius: 10px;
-    max-width: 500px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    max-width: 520px;
     width: 100%;
     max-height: 85vh;
     overflow-y: auto;
-    padding: 24px;
+    padding: 28px;
     position: relative;
 }
 
 .modal-close {
     position: absolute;
-    top: 12px;
-    right: 16px;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
+    top: 14px;
+    right: 18px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
     cursor: pointer;
-    color: #666;
+    color: var(--text-muted);
+}
+
+.modal-close:hover {
+    color: var(--accent);
 }
 
 .modal-box h3 {
-    color: #132257;
-    margin: 18px 0 8px;
-    font-size: 1.05rem;
+    color: var(--accent);
+    margin: 20px 0 8px;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
 }
 
 .goal-entry, .lineup-entry {
-    padding: 6px 0;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 0.92rem;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.88rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
 }
 
 .goal-entry .minute {
-    color: #132257;
-    font-weight: bold;
-    margin-right: 6px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 8px;
 }
 
 .goal-entry .assist {
-    color: #777;
-    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
     display: block;
+    margin-top: 3px;
 }
 
 .lineup-note {
     font-size: 0.85rem;
-    color: #888;
+    color: var(--text-muted);
     font-style: italic;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* --- Club info stat grid --- */
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.stat-box {
+    background: #050814;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+
+.stat-box .stat-value {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.4rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.stat-box .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* --- Player rows with position pills --- */
+
+.player-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.player-row:last-child {
+    border-bottom: none;
+}
+
+.pos-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+}
+
+.pos-pill.gk { background: rgba(240,168,60,0.18); color: var(--accent); }
+.pos-pill.def { background: rgba(47,163,107,0.18); color: var(--pitch); }
+.pos-pill.mid { background: rgba(140,160,255,0.18); color: #8ca0ff; }
+.pos-pill.fwd { background: rgba(217,83,79,0.18); color: #ff8580; }
+
+/* --- Legacy .result class kept for compatibility --- */
+
+.result {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.result:last-child {
+    border-bottom: none;
 }

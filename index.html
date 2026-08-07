@@ -16,16 +16,18 @@
     </nav>
 
     <header>
+        <p class="eyebrow">N17 · Est. 1882</p>
         <h1>Spurs Hub</h1>
-        <p>Come On You Spurs — fixtures, predictions, and results</p>
+        <p class="subtitle">Fixtures · Predictions · Results</p>
     </header>
 
     <section>
         <h2>Next Fixture</h2>
         <div class="fixture-teams" id="next-fixture-crests"></div>
-        <p style="text-align:center; font-weight:bold;">Tottenham vs Getafe</p>
-        <p id="countdown">Loading...</p>
-        <p style="text-align:center; margin-top:10px; color:#666;">Saturday 8 August 2026, 3:00pm — Friendly</p>
+        <div class="scoreboard">
+            <p id="countdown">Loading...</p>
+        </div>
+        <p class="kickoff-line">Sat 8 Aug 2026 · 15:00 KO · Friendly</p>
     </section>
 
     <section class="predict-box">
@@ -37,16 +39,16 @@
             <input type="number" id="predAway" min="0" value="0">
             <span>Getafe</span>
         </div>
-        <button id="predict-save-btn" style="margin-top:5px;">Save Prediction</button>
+        <button id="predict-save-btn">Save Prediction</button>
         <p class="predict-status" id="predict-status"></p>
 
-        <div id="prediction-history" style="margin-top:20px; text-align:left;"></div>
+        <div id="prediction-history"></div>
         <p class="accuracy-summary" id="accuracy-summary"></p>
     </section>
 
     <section>
         <h2>Recent Results</h2>
-        <p style="font-size:0.85rem; color:#888; margin-bottom:10px;">Tap a match for goals, assists, and lineups</p>
+        <p class="kickoff-line" style="margin-bottom:14px;">Tap a match for goals, assists &amp; lineups</p>
         <div id="recent-results-list"></div>
     </section>
 

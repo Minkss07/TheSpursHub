@@ -16,27 +16,30 @@
     </nav>
 
     <header>
+        <p class="eyebrow">N17 · Est. 1882</p>
         <h1>Club Info</h1>
-        <p>Everything about the club</p>
+        <p class="subtitle">Facts &amp; First Team</p>
     </header>
 
-    <div id="club-crest" style="display:flex; justify-content:center; margin-top:20px;"></div>
+    <div id="club-crest" style="display:flex; justify-content:center; margin-top:6px; margin-bottom:26px;"></div>
 
     <section>
         <h2>Club Facts</h2>
-        <div class="result"><span>Founded</span><span>1882</span></div>
-        <div class="result"><span>Manager</span><span>Roberto De Zerbi</span></div>
-        <div class="result"><span>Stadium</span><span>Tottenham Hotspur Stadium</span></div>
-        <div class="result"><span>Capacity</span><span>62,850</span></div>
+        <div class="stat-grid">
+            <div class="stat-box"><div class="stat-value">1882</div><div class="stat-label">Founded</div></div>
+            <div class="stat-box"><div class="stat-value">62,850</div><div class="stat-label">Capacity</div></div>
+            <div class="stat-box" style="grid-column: span 2;"><div class="stat-value" style="font-size:1.1rem;">Roberto De Zerbi</div><div class="stat-label">Manager</div></div>
+            <div class="stat-box" style="grid-column: span 2;"><div class="stat-value" style="font-size:1.1rem;">Tottenham Hotspur Stadium</div><div class="stat-label">Ground</div></div>
+        </div>
     </section>
 
     <section>
         <h2>Key Players</h2>
-        <div class="result"><span>Guglielmo Vicario</span><span>GK</span></div>
-        <div class="result"><span>Cristian Romero</span><span>DEF</span></div>
-        <div class="result"><span>James Maddison</span><span>MID</span></div>
-        <div class="result"><span>Dejan Kulusevski</span><span>MID</span></div>
-        <div class="result"><span>Richarlison</span><span>FWD</span></div>
+        <div class="player-row"><span>Guglielmo Vicario</span><span class="pos-pill gk">GK</span></div>
+        <div class="player-row"><span>Cristian Romero</span><span class="pos-pill def">DEF</span></div>
+        <div class="player-row"><span>James Maddison</span><span class="pos-pill mid">MID</span></div>
+        <div class="player-row"><span>Dejan Kulusevski</span><span class="pos-pill mid">MID</span></div>
+        <div class="player-row"><span>Richarlison</span><span class="pos-pill fwd">FWD</span></div>
     </section>
 
     <script src="script.js"></script>
