@@ -364,6 +364,151 @@ function closePlayerModal(event) {
     document.getElementById("player-modal-overlay").classList.remove("open");
 }
 
+/* ---------- Live fixture data (football-data.org) ---------- */
+/*
+   Free tier: real fixture dates, opponents, and final scores for
+   competitions like the Premier League. It does NOT reliably include
+   goal-by-goal detail (scorer/assist/minute) or lineups on the free
+   plan — those stay manually added for big matches, same as before.
+
+   If the API call fails for any reason (offline, rate limit, CORS),
+   everything falls back to the static data already in this file, so
+   the site never breaks.
+*/
+
+const FOOTBALL_API_TOKEN = "2b8579a1a512447bb01bf95064f44bf5";
+const FOOTBALL_API_BASE = "https://api.football-data.org/v4";
+const SPURS_TEAM_ID = 73;
+
+async function fetchNextFixtureLive() {
+    try {
+        const res = await fetch(`${FOOTBALL_API_BASE}/teams/${SPURS_TEAM_ID}/matches?status=SCHEDULED&limit=1`, {
+            headers: { "X-Auth-Token": FOOTBALL_API_TOKEN }
+        });
+        if (!res.ok) throw new Error(`API responded ${res.status}`);
+        const data = await res.json();
+        if (!data.matches || data.matches.length === 0) return null;
+
+        const match = data.matches[0];
+        const isHome = match.homeTeam.id === SPURS_TEAM_ID;
+        const opponentName = isHome ? match.awayTeam.name : match.homeTeam.name;
+
+        return {
+            opponentName: opponentName,
+            utcDate: match.utcDate,
+            competition: match.competition ? match.competition.name : "Fixture",
+            isHome: isHome
+        };
+    } catch (err) {
+        console.warn("Live fixture fetch failed, using fallback data:", err);
+        return null;
+    }
+}
+
+async function fetchRecentResultsLive(count) {
+    try {
+        const res = await fetch(`${FOOTBALL_API_BASE}/teams/${SPURS_TEAM_ID}/matches?status=FINISHED&limit=${count}`, {
+            headers: { "X-Auth-Token": FOOTBALL_API_TOKEN }
+        });
+        if (!res.ok) throw new Error(`API responded ${res.status}`);
+        const data = await res.json();
+        if (!data.matches) return [];
+
+        return data.matches.map(match => {
+            const isHome = match.homeTeam.id === SPURS_TEAM_ID;
+            const opponentName = isHome ? match.awayTeam.name : match.homeTeam.name;
+            const spursScore = isHome ? match.score.fullTime.home : match.score.fullTime.away;
+            const oppScore = isHome ? match.score.fullTime.away : match.score.fullTime.home;
+            let resultTag = "D";
+            if (spursScore > oppScore) resultTag = "W";
+            if (spursScore < oppScore) resultTag = "L";
+
+            return {
+                id: `live-${match.id}`,
+                opponentName: opponentName,
+                date: new Date(match.utcDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+                competition: match.competition ? match.competition.name : "Match",
+                scoreline: `Tottenham ${spursScore} - ${oppScore} ${opponentName}`,
+                resultTag: resultTag,
+                isLive: true // flags that we don't have goal/lineup detail for this one
+            };
+        });
+    } catch (err) {
+        console.warn("Live results fetch failed, using fallback data:", err);
+        return [];
+    }
+}
+
+/* Initialises the homepage fixture + results using live data where
+   possible, falling back to the static values already on the page. */
+async function initLiveFixtureData(fallbackDateISO, fallbackOpponentKey) {
+    const live = await fetchNextFixtureLive();
+
+    if (live) {
+        const opponentInitials = live.opponentName.split(" ").map(w => w[0]).join("").slice(0, 4).toUpperCase();
+        // Register a lightweight team entry so crestBadge() works for opponents not in TEAMS
+        if (!TEAMS[live.opponentName]) {
+            TEAMS[live.opponentName] = { name: live.opponentName, color: "#444a6b", initials: opponentInitials };
+        }
+        document.querySelector("#next-fixture-crests")?.parentElement.querySelector("h2").nextElementSibling;
+        startCountdown(live.utcDate);
+        renderFixtureCrests("next-fixture-crests", "tottenham", live.opponentName);
+        const kickoffLine = document.querySelector(".kickoff-line");
+        if (kickoffLine) {
+            const d = new Date(live.utcDate);
+            kickoffLine.textContent = `${d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} KO · ${live.competition}`;
+        }
+        initPredictWidget(live.opponentName, live.utcDate);
+    } else {
+        // fallback: use the static Getafe fixture already in the page
+        startCountdown(fallbackDateISO);
+        renderFixtureCrests("next-fixture-crests", "tottenham", fallbackOpponentKey);
+        initPredictWidget("Getafe", fallbackDateISO);
+    }
+    renderPredictionHistory();
+}
+
+async function renderRecentResultsLive() {
+    const liveMatches = await fetchRecentResultsLive(3);
+    const list = document.getElementById("recent-results-list");
+    if (!list) return;
+
+    if (liveMatches.length === 0) {
+        // fallback: use the static pre-season friendlies already defined
+        renderRecentResults();
+        return;
+    }
+
+    list.innerHTML = "";
+    liveMatches.forEach(m => {
+        const row = document.createElement("div");
+        row.className = "result-row";
+        const opponentInitials = m.opponentName.split(" ").map(w => w[0]).join("").slice(0, 4).toUpperCase();
+        if (!TEAMS[m.opponentName]) {
+            TEAMS[m.opponentName] = { name: m.opponentName, color: "#444a6b", initials: opponentInitials };
+        }
+        row.innerHTML = `
+            ${crestBadge(m.opponentName, 36)}
+            <span class="opponent-name">vs ${m.opponentName}</span>
+            <span class="score-tag">${m.scoreline.replace("Tottenham", "Spurs")} ${m.resultTag}</span>
+        `;
+        row.onclick = () => {
+            const content = document.getElementById("modal-content");
+            content.innerHTML = `
+                <div class="fixture-teams">
+                    ${crestBadge("tottenham", 60)}
+                    <span class="vs">${m.scoreline}</span>
+                    ${crestBadge(m.opponentName, 60)}
+                </div>
+                <p style="text-align:center; color:#666; margin-bottom:10px;">${m.date} — ${m.competition}</p>
+                <p class="lineup-note" style="text-align:center;">Live score data — goal and lineup detail not available for this match yet.</p>
+            `;
+            document.getElementById("match-modal-overlay").classList.add("open");
+        };
+        list.appendChild(row);
+    });
+}
+
 function submitResult(id) {
     const home = parseInt(document.getElementById(`actualHome-${id}`).value, 10);
     const away = parseInt(document.getElementById(`actualAway-${id}`).value, 10);
