@@ -521,3 +521,62 @@ section h2 {
 .result:last-child {
     border-bottom: none;
 }
+
+/* --- News items --- */
+
+.news-item {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.news-item:last-child {
+    border-bottom: none;
+}
+
+.news-item h3 {
+    font-size: 1.05rem;
+    margin: 8px 0 8px;
+    text-transform: none;
+    color: var(--text);
+}
+
+.news-item p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.news-item a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.news-item a:hover {
+    text-decoration: underline;
+}
+
+.news-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.news-tag {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+    color: white;
+}
+
+.news-tag.transfer { background: var(--pitch); }
+.news-tag.injury { background: var(--loss); }
+.news-tag.opinion { background: #6c7bc4; }
+.news-tag.controversy { background: var(--accent); color: #1a1200; }

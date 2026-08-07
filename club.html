@@ -13,6 +13,7 @@
     <nav class="sidebar" id="sidebar">
         <a href="index.html">Home</a>
         <a href="club.html" class="active">Squad</a>
+        <a href="news.html">Spurs News</a>
     </nav>
 
     <header>
@@ -33,61 +34,42 @@
 
     <section>
         <h2>Attack</h2>
-        <div class="player-row"><span>Richarlison</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Dominic Solanke</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Mathys Tel</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Mohammed Kudus</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Brennan Johnson</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Wilson Odobert</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Manor Solomon</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Dane Scarlett</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Mikey Moore</span><span class="pos-pill fwd">ATT</span></div>
-        <div class="player-row"><span>Yang Min-hyeok</span><span class="pos-pill fwd">ATT</span></div>
+        <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
+        <div id="squad-att"></div>
     </section>
 
     <section>
         <h2>Central Midfield</h2>
-        <div class="player-row"><span>Sandro Tonali</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>James Maddison</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Xavi Simons</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Mateus Fernandes</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Conor Gallagher</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Lucas Bergvall</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Pape Matar Sarr</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Rodrigo Bentancur</span><span class="pos-pill mid">CM</span></div>
-        <div class="player-row"><span>Dejan Kulusevski</span><span class="pos-pill mid">CM</span></div>
+        <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
+        <div id="squad-cm"></div>
     </section>
 
     <section>
         <h2>Defence</h2>
-        <div class="player-row"><span>Cristian Romero</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Micky van de Ven</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Jan Paul van Hecke</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Marcos Senesi</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Kevin Danso</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Archie Gray</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Ben Davies</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Andy Robertson</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Destiny Udogie</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Djed Spence</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Pedro Porro</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row"><span>Kota Takai</span><span class="pos-pill def">DEF</span></div>
-        <div class="player-row">
-            <span>Radu Dragusin <span class="lineup-note">— on loan at Fiorentina</span></span>
-            <span class="pos-pill def">DEF</span>
-        </div>
+        <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
+        <div id="squad-def"></div>
     </section>
 
     <section>
         <h2>Goalkeepers</h2>
-        <div class="player-row"><span>Guglielmo Vicario</span><span class="pos-pill gk">GK</span></div>
-        <div class="player-row"><span>Antonín Kinsky</span><span class="pos-pill gk">GK</span></div>
-        <div class="player-row"><span>Brandon Austin</span><span class="pos-pill gk">GK</span></div>
+        <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
+        <div id="squad-gk"></div>
     </section>
+
+    <div class="modal-overlay" id="player-modal-overlay" onclick="closePlayerModal(event)">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closePlayerModal()">×</button>
+            <div id="player-modal-content"></div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
     <script>
         document.getElementById("club-crest").innerHTML = crestBadge("tottenham", 70);
+        renderSquadSection("squad-att", "att");
+        renderSquadSection("squad-cm", "cm");
+        renderSquadSection("squad-def", "def");
+        renderSquadSection("squad-gk", "gk");
     </script>
 
 </body>
