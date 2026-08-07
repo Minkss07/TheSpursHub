@@ -259,6 +259,102 @@ function closeMatchModal(event) {
     if (event && event.target.id !== "match-modal-overlay" && !event.target.classList.contains("modal-close")) return;
     document.getElementById("match-modal-overlay").classList.remove("open");
 }
+/* ---------- Squad data ---------- */
+/* Sourced from current squad listings (positions, ages, nationalities,
+   shirt numbers). Grouped to match the site's section layout. */
+
+const SQUAD = {
+    att: [
+        { name: "Richarlison", pos: "ST", nation: "Brazil", age: 29, shirt: 9 },
+        { name: "Mathys Tel", pos: "LW", nation: "France", age: 21, shirt: 11 },
+        { name: "Dominic Solanke", pos: "ST", nation: "England", age: 28, shirt: 19 },
+        { name: "Mohammed Kudus", pos: "RW", nation: "Ghana", age: 26, shirt: 20 },
+        { name: "Manor Solomon", pos: "LW", nation: "Israel", age: 27, shirt: 27 },
+        { name: "Wilson Odobert", pos: "LW", nation: "France", age: 21, shirt: 28, injury: "Cruciate ligament injury — expected back mid-October 2026" },
+        { name: "Dane Scarlett", pos: "ST", nation: "England", age: 22, shirt: 44 },
+        { name: "Mikey Moore", pos: "LW", nation: "England", age: 18, shirt: 47 },
+        { name: "Min-Hyeok Yang", pos: "LW", nation: "South Korea", age: 20, shirt: 59 }
+    ],
+    cm: [
+        { name: "Xavi Simons", pos: "AM", nation: "Netherlands", age: 23, shirt: 7, injury: "Cruciate ligament injury — expected back early January 2027" },
+        { name: "Conor Gallagher", pos: "CM", nation: "England", age: 26, shirt: 8 },
+        { name: "James Maddison", pos: "LW", nation: "England", age: 29, shirt: 10 },
+        { name: "Archie Gray", pos: "DM", nation: "England", age: 20, shirt: 14 },
+        { name: "Lucas Bergvall", pos: "CM", nation: "Sweden", age: 20, shirt: 15 },
+        { name: "Sandro Tonali", pos: "CM", nation: "Italy", age: 26, shirt: 16 },
+        { name: "Mateus Fernandes", pos: "CM", nation: "Portugal", age: 22, shirt: 18 },
+        { name: "Dejan Kulusevski", pos: "ST", nation: "Sweden", age: 26, shirt: 21, injury: "Knee injury — return date uncertain" },
+        { name: "Pape Sarr", pos: "CM", nation: "Senegal", age: 23, shirt: 29 },
+        { name: "Rodrigo Bentancur", pos: "DM", nation: "Uruguay", age: 29, shirt: 30 },
+        { name: "Callum Olusesi", pos: "CM", nation: "England", age: 19 }
+    ],
+    def: [
+        { name: "Andrew Robertson", pos: "LB", nation: "Scotland", age: 32, shirt: 3 },
+        { name: "Kevin Danso", pos: "CB", nation: "Austria", age: 27, shirt: 4 },
+        { name: "Jan Paul van Hecke", pos: "CB", nation: "Netherlands", age: 26, shirt: 6 },
+        { name: "Destiny Udogie", pos: "LB", nation: "Italy", age: 23, shirt: 13 },
+        { name: "Cristian Romero", pos: "CB", nation: "Argentina", age: 28, shirt: 17 },
+        { name: "Pedro Porro", pos: "RB", nation: "Spain", age: 26, shirt: 23 },
+        { name: "Djed Spence", pos: "LB", nation: "England", age: 25, shirt: 24 },
+        { name: "Ben Davies", pos: "CB", nation: "Wales", age: 33, shirt: 33 },
+        { name: "Micky van de Ven", pos: "CB", nation: "Netherlands", age: 25, shirt: 37 },
+        { name: "Souza", pos: "LB", nation: "Brazil", age: 20, shirt: 38 },
+        { name: "Ashley Phillips", pos: "CB", nation: "Wales", age: 21 },
+        { name: "Marcos Senesi", pos: "CB", nation: "Argentina", age: 29 },
+        { name: "Junai Byfield", pos: "CB", nation: "England", age: 17, shirt: 67 }
+    ],
+    gk: [
+        { name: "Guglielmo Vicario", pos: "GK", nation: "Italy", age: 29, shirt: 1 },
+        { name: "Antonín Kinsky", pos: "GK", nation: "Czech Republic", age: 23, shirt: 31 },
+        { name: "Martin Dúbravka", pos: "GK", nation: "Slovakia", age: 37, shirt: 39 },
+        { name: "Brandon Austin", pos: "GK", nation: "England", age: 27, shirt: 40 }
+    ]
+};
+
+function posPillClass(pos) {
+    if (pos === "GK") return "gk";
+    if (["CB", "LB", "RB"].includes(pos)) return "def";
+    if (["CM", "DM", "AM"].includes(pos)) return "mid";
+    return "fwd"; // ST, LW, RW
+}
+
+function renderSquadSection(elementId, groupKey) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const players = SQUAD[groupKey];
+    el.innerHTML = players.map((p, i) => `
+        <div class="player-row" onclick="openPlayerModal('${groupKey}', ${i})">
+            <span>${p.name}${p.injury ? ` <span class="lineup-note">— injured</span>` : ""}</span>
+            <span class="pos-pill ${posPillClass(p.pos)}">${p.pos}</span>
+        </div>
+    `).join("");
+}
+
+function openPlayerModal(groupKey, index) {
+    const player = SQUAD[groupKey][index];
+    if (!player) return;
+
+    const content = document.getElementById("player-modal-content");
+    content.innerHTML = `
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px;">
+            ${crestBadge("tottenham", 56)}
+            <div>
+                <h2 style="margin:0; font-size:1.3rem;">${player.name}</h2>
+                <p class="kickoff-line" style="text-align:left; margin-top:4px;">${player.nation} · Age ${player.age}${player.shirt ? ` · No. ${player.shirt}` : ""}</p>
+            </div>
+        </div>
+        <h3>Position</h3>
+        <div class="lineup-entry">${player.pos}</div>
+        ${player.injury ? `<h3>Injury Status</h3><div class="lineup-entry">${player.injury}</div>` : ""}
+    `;
+    document.getElementById("player-modal-overlay").classList.add("open");
+}
+
+function closePlayerModal(event) {
+    if (event && event.target.id !== "player-modal-overlay" && !event.target.classList.contains("modal-close")) return;
+    document.getElementById("player-modal-overlay").classList.remove("open");
+}
+
 function submitResult(id) {
     const home = parseInt(document.getElementById(`actualHome-${id}`).value, 10);
     const away = parseInt(document.getElementById(`actualAway-${id}`).value, 10);
