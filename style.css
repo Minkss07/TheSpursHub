@@ -1065,3 +1065,41 @@ html[data-theme="light"] .tag.pending {
 .theme-toggle-btn:hover {
     border-color: var(--accent);
 }
+
+/* --- Model probability bar --- */
+
+.prob-bar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    margin-bottom: 10px;
+}
+
+.prob-seg {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.prob-win  { background: var(--pitch); }
+.prob-draw { background: var(--text-muted); }
+.prob-loss { background: var(--loss); }
+
+.prob-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.prob-key {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    margin-right: 6px;
+}

@@ -86,12 +86,18 @@ function initPredictWidget(opponent, matchDateISO, modelPrediction) {
     if (modelScoreEl) {
         if (modelPrediction && modelPrediction.sampleSize > 0) {
             modelScoreEl.textContent = `${modelPrediction.spursRounded} - ${modelPrediction.oppRounded}`;
-            if (modelNoteEl) modelNoteEl.textContent = `Based on each team's last ${modelPrediction.sampleSize} matches`;
+            if (modelNoteEl) {
+                modelNoteEl.textContent =
+                    `xG ${modelPrediction.spursExpected.toFixed(2)} – ${modelPrediction.oppExpected.toFixed(2)} · ` +
+                    `${modelPrediction.spursAtHome ? "home" : "away"} · ${modelPrediction.matchesUsed} league matches analysed`;
+            }
         } else {
             modelScoreEl.textContent = "—";
-            if (modelNoteEl) modelNoteEl.textContent = "Not enough recent match data yet";
+            if (modelNoteEl) modelNoteEl.textContent = "Not enough league match data yet";
         }
     }
+
+    renderModelProbabilities(modelPrediction, opponent);
 
     // Only one pending (unresolved) prediction is allowed at a time —
     // this avoids accidentally saving multiple guesses if a live-data
@@ -581,7 +587,7 @@ async function initLiveFixtureData(fallbackDateISO, fallbackOpponentKey) {
             const d = new Date(live.utcDate);
             kickoffLine.textContent = `${d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} KO · ${live.competition}`;
         }
-        const modelPrediction = await computeModelPrediction(live.opponentId);
+        const modelPrediction = await computeModelPrediction(live.opponentId, live.isHome);
         initPredictWidget(live.opponentName, live.utcDate, modelPrediction);
         renderHeadToHead(live.matchId, live.opponentName);
     } else {
@@ -759,66 +765,307 @@ function applyFixtureFilters() {
 
 /* ---------- Score prediction model ---------- */
 /*
-   A simple, explainable "expected goals" model:
-   For each team, look at their last 6 finished matches to get their
-   average goals scored and average goals conceded. A team's predicted
-   goals in the upcoming fixture = average of (their own attack rate)
-   and (the opponent's defensive weakness rate).
-   This is a standard, well-understood approach — not a black box.
+   A Dixon-Coles style bivariate Poisson model — the standard approach
+   in football analytics literature (Dixon & Coles, 1997).
+
+   How it works, in plain terms:
+
+   1. Pull every completed Premier League match from the current season
+      and the one before it (league matches only — friendlies are
+      excluded, since they tell you very little).
+
+   2. Weight each match by how recent it is (exponential decay, ~220 day
+      half-life), plus a modest extra discount on last season to account
+      for summer squad turnover.
+
+   3. Work out league-wide average home and away goals. Then rate every
+      team's attack and defence RELATIVE to that average, separately for
+      home and away — because teams genuinely play differently at home.
+
+   4. Shrink each team's rating toward the league average in proportion
+      to how little data supports it. A team with two matches played
+      shouldn't be trusted as much as one with thirty.
+
+   5. Turn the two teams' ratings into expected goals for this specific
+      fixture, then use a Poisson distribution to get the probability of
+      EVERY scoreline, not just one guess.
+
+   6. Apply the Dixon-Coles correction, which fixes a known weakness of
+      plain Poisson: it misprices low scores (0-0, 1-0, 0-1, 1-1).
+
+   The output is a probability distribution, not a certainty. That is
+   the honest form of a football prediction — see the accuracy note on
+   the About page.
 */
 
-async function fetchTeamForm(teamId) {
+const MODEL_CONFIG = {
+    halfLifeDays: 220,          // recency: a match this old counts half as much
+    previousSeasonWeight: 0.8,  // extra discount on last season (squad turnover)
+    shrinkageMatches: 6,        // how much data before a team's own numbers are trusted
+    maxGoals: 8,                // scoreline grid size
+    rho: -0.05,                 // Dixon-Coles low-score correction strength
+    currentSeason: 2026,
+    previousSeason: 2025
+};
+
+let leagueModelCache = null;
+
+async function fetchCompetitionMatches(season) {
     try {
-        const res = await fetch(`${PROXY_BASE}/team-form?id=${teamId}`);
+        const res = await fetch(`${PROXY_BASE}/competition-matches?season=${season}`);
         if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
         const data = await res.json();
-        const matches = data.matches || [];
-        // API returns matches oldest-first within the date range — take the 6 most recent
-        return matches.slice().sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate)).slice(0, 6);
+        return (data.matches || []).filter(m =>
+            m.status === "FINISHED" &&
+            m.score && m.score.fullTime &&
+            m.score.fullTime.home !== null &&
+            m.score.fullTime.away !== null
+        );
     } catch (err) {
-        console.warn(`Form fetch failed for team ${teamId}:`, err);
+        console.warn(`Competition matches fetch failed for season ${season}:`, err);
         return [];
     }
 }
 
-function averageForAgainst(matches, teamId) {
-    if (matches.length === 0) return { avgFor: 1.2, avgAgainst: 1.2 }; // neutral fallback
+function buildLeagueModel(matchGroups) {
+    const now = Date.now();
+    const teams = {};
+    let leagueHomeGoals = 0, leagueAwayGoals = 0, leagueWeight = 0, rawMatchCount = 0;
 
-    let totalFor = 0;
-    let totalAgainst = 0;
+    function ensureTeam(id, name) {
+        if (!teams[id]) {
+            teams[id] = {
+                id: id, name: name,
+                homeFor: 0, homeAgainst: 0, homeWeight: 0,
+                awayFor: 0, awayAgainst: 0, awayWeight: 0
+            };
+        }
+        return teams[id];
+    }
 
-    matches.forEach(m => {
-        const isHome = m.homeTeam.id === teamId;
-        const scored = isHome ? m.score.fullTime.home : m.score.fullTime.away;
-        const conceded = isHome ? m.score.fullTime.away : m.score.fullTime.home;
-        totalFor += scored ?? 0;
-        totalAgainst += conceded ?? 0;
+    matchGroups.forEach(group => {
+        group.matches.forEach(m => {
+            const hg = m.score.fullTime.home;
+            const ag = m.score.fullTime.away;
+
+            const daysAgo = (now - new Date(m.utcDate).getTime()) / 86400000;
+            const decay = Math.pow(0.5, Math.max(0, daysAgo) / MODEL_CONFIG.halfLifeDays);
+            const w = group.weight * decay;
+            if (!(w > 0)) return;
+
+            const home = ensureTeam(m.homeTeam.id, m.homeTeam.shortName || m.homeTeam.name);
+            const away = ensureTeam(m.awayTeam.id, m.awayTeam.shortName || m.awayTeam.name);
+
+            home.homeFor += hg * w;
+            home.homeAgainst += ag * w;
+            home.homeWeight += w;
+
+            away.awayFor += ag * w;
+            away.awayAgainst += hg * w;
+            away.awayWeight += w;
+
+            leagueHomeGoals += hg * w;
+            leagueAwayGoals += ag * w;
+            leagueWeight += w;
+            rawMatchCount++;
+        });
+    });
+
+    if (leagueWeight <= 0) return null;
+
+    const leagueHomeAvg = Math.max(0.2, leagueHomeGoals / leagueWeight);
+    const leagueAwayAvg = Math.max(0.2, leagueAwayGoals / leagueWeight);
+    const k = MODEL_CONFIG.shrinkageMatches;
+
+    Object.keys(teams).forEach(id => {
+        const t = teams[id];
+        const hw = t.homeWeight, aw = t.awayWeight;
+
+        // Shrink toward 1.0 (league average) when the sample is thin.
+        const hShrink = hw / (hw + k);
+        const aShrink = aw / (aw + k);
+
+        const rawAttackHome  = hw > 0 ? (t.homeFor / hw) / leagueHomeAvg : 1;
+        const rawDefenceHome = hw > 0 ? (t.homeAgainst / hw) / leagueAwayAvg : 1;
+        const rawAttackAway  = aw > 0 ? (t.awayFor / aw) / leagueAwayAvg : 1;
+        const rawDefenceAway = aw > 0 ? (t.awayAgainst / aw) / leagueHomeAvg : 1;
+
+        t.attackHome  = 1 + (rawAttackHome  - 1) * hShrink;
+        t.defenceHome = 1 + (rawDefenceHome - 1) * hShrink;
+        t.attackAway  = 1 + (rawAttackAway  - 1) * aShrink;
+        t.defenceAway = 1 + (rawDefenceAway - 1) * aShrink;
+        t.dataConfidence = (hShrink + aShrink) / 2; // 0 = no data, →1 = well supported
     });
 
     return {
-        avgFor: totalFor / matches.length,
-        avgAgainst: totalAgainst / matches.length
+        leagueHomeAvg: leagueHomeAvg,
+        leagueAwayAvg: leagueAwayAvg,
+        teams: teams,
+        matchesUsed: rawMatchCount
     };
 }
 
-async function computeModelPrediction(opponentTeamId) {
-    const [spursMatches, oppMatches] = await Promise.all([
-        fetchTeamForm(SPURS_TEAM_ID),
-        fetchTeamForm(opponentTeamId)
+async function getLeagueModel() {
+    if (leagueModelCache) return leagueModelCache;
+
+    const [currentMatches, previousMatches] = await Promise.all([
+        fetchCompetitionMatches(MODEL_CONFIG.currentSeason),
+        fetchCompetitionMatches(MODEL_CONFIG.previousSeason)
     ]);
 
-    const spursForm = averageForAgainst(spursMatches, SPURS_TEAM_ID);
-    const oppForm = averageForAgainst(oppMatches, opponentTeamId);
+    const model = buildLeagueModel([
+        { matches: currentMatches, weight: 1.0 },
+        { matches: previousMatches, weight: MODEL_CONFIG.previousSeasonWeight }
+    ]);
 
-    const spursExpected = (spursForm.avgFor + oppForm.avgAgainst) / 2;
-    const oppExpected = (oppForm.avgFor + spursForm.avgAgainst) / 2;
+    leagueModelCache = model;
+    return model;
+}
+
+/* --- Poisson maths --- */
+
+function poissonPmf(k, lambda) {
+    const lam = Math.max(0.05, lambda);
+    let logP = -lam + k * Math.log(lam);
+    for (let i = 2; i <= k; i++) logP -= Math.log(i);
+    return Math.exp(logP);
+}
+
+/* Dixon-Coles correction: plain Poisson assumes the two teams' goals are
+   independent, which measurably misprices 0-0, 1-0, 0-1 and 1-1. */
+function dixonColesTau(x, y, lambda, mu, rho) {
+    if (x === 0 && y === 0) return 1 - lambda * mu * rho;
+    if (x === 0 && y === 1) return 1 + lambda * rho;
+    if (x === 1 && y === 0) return 1 + mu * rho;
+    if (x === 1 && y === 1) return 1 - rho;
+    return 1;
+}
+
+function buildScoreMatrix(lambdaHome, lambdaAway) {
+    const N = MODEL_CONFIG.maxGoals;
+    const rho = MODEL_CONFIG.rho;
+    const matrix = [];
+    let total = 0;
+
+    for (let x = 0; x <= N; x++) {
+        matrix[x] = [];
+        for (let y = 0; y <= N; y++) {
+            let p = poissonPmf(x, lambdaHome) *
+                    poissonPmf(y, lambdaAway) *
+                    dixonColesTau(x, y, lambdaHome, lambdaAway, rho);
+            if (!(p > 0)) p = 0;
+            matrix[x][y] = p;
+            total += p;
+        }
+    }
+
+    if (total > 0) {
+        for (let x = 0; x <= N; x++) {
+            for (let y = 0; y <= N; y++) matrix[x][y] /= total;
+        }
+    }
+    return matrix;
+}
+
+function renderModelProbabilities(prediction, opponentName) {
+    const box = document.getElementById("model-probabilities");
+    if (!box) return;
+
+    if (!prediction || !prediction.sampleSize) {
+        box.innerHTML = "";
+        return;
+    }
+
+    const win = Math.round(prediction.pSpursWin * 100);
+    const draw = Math.round(prediction.pDraw * 100);
+    const loss = Math.round(prediction.pOppWin * 100);
+
+    const alts = prediction.topScorelines.map(s =>
+        `${s.spurs}-${s.opponent} (${Math.round(s.probability * 100)}%)`
+    ).join("  ·  ");
+
+    box.innerHTML = `
+        <div class="prob-bar">
+            <div class="prob-seg prob-win" style="width:${win}%" title="Tottenham win"></div>
+            <div class="prob-seg prob-draw" style="width:${draw}%" title="Draw"></div>
+            <div class="prob-seg prob-loss" style="width:${loss}%" title="${opponentName} win"></div>
+        </div>
+        <div class="prob-legend">
+            <span><i class="prob-key prob-win"></i>Spurs ${win}%</span>
+            <span><i class="prob-key prob-draw"></i>Draw ${draw}%</span>
+            <span><i class="prob-key prob-loss"></i>${opponentName} ${loss}%</span>
+        </div>
+        <p class="lineup-note" style="margin-top:10px;">Most likely scorelines: ${alts}</p>
+    `;
+}
+
+const NEUTRAL_TEAM = {
+    attackHome: 1, defenceHome: 1, attackAway: 1, defenceAway: 1, dataConfidence: 0
+};
+
+async function computeModelPrediction(opponentTeamId, spursAtHome) {
+    const model = await getLeagueModel();
+    if (!model) return null;
+
+    const spurs = model.teams[SPURS_TEAM_ID] || NEUTRAL_TEAM;
+    const opp = model.teams[opponentTeamId] || NEUTRAL_TEAM;
+
+    // Expected goals for this specific fixture, respecting who is at home.
+    let lambdaHome, lambdaAway;
+    if (spursAtHome) {
+        lambdaHome = model.leagueHomeAvg * spurs.attackHome * opp.defenceAway;
+        lambdaAway = model.leagueAwayAvg * opp.attackAway * spurs.defenceHome;
+    } else {
+        lambdaHome = model.leagueHomeAvg * opp.attackHome * spurs.defenceAway;
+        lambdaAway = model.leagueAwayAvg * spurs.attackAway * opp.defenceHome;
+    }
+
+    const matrix = buildScoreMatrix(lambdaHome, lambdaAway);
+    const N = MODEL_CONFIG.maxGoals;
+
+    let pHomeWin = 0, pDraw = 0, pAwayWin = 0;
+    const scorelines = [];
+
+    for (let x = 0; x <= N; x++) {
+        for (let y = 0; y <= N; y++) {
+            const p = matrix[x][y];
+            if (x > y) pHomeWin += p;
+            else if (x === y) pDraw += p;
+            else pAwayWin += p;
+            scorelines.push({ home: x, away: y, p: p });
+        }
+    }
+
+    scorelines.sort((a, b) => b.p - a.p);
+    const best = scorelines[0];
+
+    // Re-express everything from Tottenham's point of view
+    const spursExpected = spursAtHome ? lambdaHome : lambdaAway;
+    const oppExpected = spursAtHome ? lambdaAway : lambdaHome;
+    const spursRounded = spursAtHome ? best.home : best.away;
+    const oppRounded = spursAtHome ? best.away : best.home;
+    const pSpursWin = spursAtHome ? pHomeWin : pAwayWin;
+    const pOppWin = spursAtHome ? pAwayWin : pHomeWin;
+
+    const topScorelines = scorelines.slice(0, 3).map(s => ({
+        spurs: spursAtHome ? s.home : s.away,
+        opponent: spursAtHome ? s.away : s.home,
+        probability: s.p
+    }));
 
     return {
         spursExpected: spursExpected,
         oppExpected: oppExpected,
-        spursRounded: Math.round(spursExpected),
-        oppRounded: Math.round(oppExpected),
-        sampleSize: spursMatches.length && oppMatches.length ? Math.min(spursMatches.length, oppMatches.length) : 0
+        spursRounded: spursRounded,
+        oppRounded: oppRounded,
+        pSpursWin: pSpursWin,
+        pDraw: pDraw,
+        pOppWin: pOppWin,
+        topScorelines: topScorelines,
+        spursAtHome: spursAtHome,
+        confidence: Math.min(spurs.dataConfidence, opp.dataConfidence),
+        matchesUsed: model.matchesUsed,
+        sampleSize: model.matchesUsed
     };
 }
 

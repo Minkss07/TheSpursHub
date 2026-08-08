@@ -31,7 +31,7 @@
     <section>
         <h2>What This Is</h2>
         <p class="news-item" style="border:none; padding:0;">
-            Spurs Hub is a personal side project built to learn web development from scratch, starting with zero coding experience. It's a Tottenham Hotspur fan site combining live football data, a self-built score prediction model, and a fully custom front end — built and maintained over time rather than as a one-off exercise.
+            Spurs Hub is a personal side project combining live football data, a self-built score prediction model, and a fully custom front end. It's a Tottenham Hotspur fan site — built and maintained over time rather than as a one-off exercise.
         </p>
     </section>
 
@@ -56,8 +56,31 @@
 
     <section>
         <h2>The Prediction Model</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            Before each fixture, the site produces a probabilistic forecast using a Dixon-Coles style bivariate Poisson model — the standard approach in football analytics literature (Dixon &amp; Coles, 1997). It is fully explainable rather than a black box.
+        </p>
+        <div class="player-row" style="cursor:default;"><span>Sample</span><span class="pos-pill mid">Two full PL seasons</span></div>
+        <div class="player-row" style="cursor:default;"><span>Recency weighting</span><span class="pos-pill mid">220-day half-life</span></div>
+        <div class="player-row" style="cursor:default;"><span>Ratings</span><span class="pos-pill mid">Attack &amp; defence vs league avg</span></div>
+        <div class="player-row" style="cursor:default;"><span>Venue</span><span class="pos-pill mid">Separate home/away splits</span></div>
+        <div class="player-row" style="cursor:default;"><span>Small samples</span><span class="pos-pill mid">Shrunk toward league mean</span></div>
+        <div class="player-row" style="cursor:default;"><span>Output</span><span class="pos-pill mid">Full scoreline distribution</span></div>
+
+        <p class="news-item" style="border:none; padding:0; margin-top:16px;">
+            Rather than guessing one scoreline, the model estimates expected goals for each side in that specific fixture, then derives the probability of every scoreline from 0-0 up to 8-8. The Dixon-Coles correction is applied because plain Poisson assumes the two teams' goals are independent, which measurably misprices low scores (0-0, 1-0, 0-1, 1-1).
+        </p>
+    </section>
+
+    <section>
+        <h2>On Accuracy</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            Football match prediction has a hard ceiling. Professional bookmakers, with paid data feeds and full-time quantitative teams, land in the region of 50–60% on match outcomes. Any model claiming to be near-perfect is either overfitted to past data or misrepresenting itself.
+        </p>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            The goal here is therefore not raw accuracy but <strong>calibration</strong> — when the model says 60%, that outcome should happen roughly 60% of the time. That is why the site reports a probability distribution rather than a single confident scoreline, and why it is tracked against my own predictions over the season.
+        </p>
         <p class="news-item" style="border:none; padding:0;">
-            Before each fixture, the site calculates a simple, fully explainable "expected goals" prediction: each team's average goals scored and conceded over their last 6 matches is used to estimate a likely scoreline — a team's predicted goals being the average of their own attacking rate and the opponent's defensive weakness. It's deliberately simple rather than a black box, and it's tracked against my own gut predictions over time to see which is actually more accurate.
+            Known limitations, stated plainly: the model sees only historical scorelines, so it cannot account for injuries, suspensions, squad turnover, fixture congestion, or managerial change. Tottenham's summer rebuild and change of manager are exactly the kind of thing it is blind to. Newly promoted teams have no top-flight history, so their ratings default toward the league average until data accumulates.
         </p>
     </section>
 
