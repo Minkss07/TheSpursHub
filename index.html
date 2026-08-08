@@ -13,7 +13,10 @@
     <nav class="sidebar" id="sidebar">
         <a href="index.html" class="active">Home</a>
         <a href="club.html">Squad</a>
+        <a href="season.html">Season</a>
+        <a href="stats.html">Player Stats</a>
         <a href="news.html">Spurs News</a>
+        <a href="about.html">About This Project</a>
     </nav>
 
     <header>
@@ -31,16 +34,36 @@
         <p class="kickoff-line">Sat 8 Aug 2026 · 15:00 KO · Friendly</p>
     </section>
 
+    <section>
+        <h2>Head-to-Head</h2>
+        <div id="h2h-container">
+            <p class="lineup-note">Loading head-to-head record…</p>
+        </div>
+    </section>
+
     <section class="predict-box">
         <h2>Predict the Score</h2>
-        <div id="predict-form" class="predict-inputs">
-            <span>Tottenham</span>
-            <input type="number" id="predHome" min="0" value="0">
-            <span>-</span>
-            <input type="number" id="predAway" min="0" value="0">
-            <span>Getafe</span>
+
+        <div class="predict-cards">
+            <div class="predict-card">
+                <span class="predict-card-label">Your Prediction</span>
+                <div id="predict-form" class="predict-inputs">
+                    <span>THFC</span>
+                    <input type="number" id="predHome" min="0" value="0">
+                    <span>-</span>
+                    <input type="number" id="predAway" min="0" value="0">
+                    <span id="predict-opponent-name">Getafe</span>
+                </div>
+                <button id="predict-save-btn">Save Prediction</button>
+            </div>
+
+            <div class="predict-card model-card">
+                <span class="predict-card-label">Model Prediction</span>
+                <div class="model-score" id="model-score-display">—</div>
+                <span class="lineup-note" id="model-score-note">Loading…</span>
+            </div>
         </div>
-        <button id="predict-save-btn">Save Prediction</button>
+
         <p class="predict-status" id="predict-status"></p>
 
         <div id="prediction-history"></div>
@@ -63,11 +86,8 @@
     <script src="script.js"></script>
     <script>
         const matchDate = "2026-08-08T15:00:00";
-        startCountdown(matchDate);
-        initPredictWidget("Getafe", matchDate);
-        renderPredictionHistory();
-        renderFixtureCrests("next-fixture-crests", "tottenham", "getafe");
-        renderRecentResults();
+        initLiveFixtureData(matchDate, "getafe");
+        renderRecentResultsLive();
     </script>
 
 </body>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About This Project — Spurs Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <nav class="sidebar" id="sidebar">
+        <a href="index.html">Home</a>
+        <a href="club.html">Squad</a>
+        <a href="season.html">Season</a>
+        <a href="stats.html">Player Stats</a>
+        <a href="news.html">Spurs News</a>
+        <a href="about.html" class="active">About This Project</a>
+    </nav>
+
+    <header>
+        <p class="eyebrow">Personal Project</p>
+        <h1>About This Project</h1>
+        <p class="subtitle">What it is, and how it's built</p>
+    </header>
+
+    <section>
+        <h2>What This Is</h2>
+        <p class="news-item" style="border:none; padding:0;">
+            Spurs Hub is a personal side project built to learn web development from scratch, starting with zero coding experience. It's a Tottenham Hotspur fan site combining live football data, a self-built score prediction model, and a fully custom front end — built and maintained over time rather than as a one-off exercise.
+        </p>
+    </section>
+
+    <section>
+        <h2>Tech Stack</h2>
+        <div class="player-row" style="cursor:default;"><span>Front end</span><span class="pos-pill mid">HTML / CSS / JS</span></div>
+        <div class="player-row" style="cursor:default;"><span>Hosting</span><span class="pos-pill mid">GitHub Pages</span></div>
+        <div class="player-row" style="cursor:default;"><span>Live data</span><span class="pos-pill mid">football-data.org API</span></div>
+        <div class="player-row" style="cursor:default;"><span>API security</span><span class="pos-pill mid">Cloudflare Worker (proxy)</span></div>
+        <div class="player-row" style="cursor:default;"><span>Data persistence</span><span class="pos-pill mid">Browser localStorage</span></div>
+    </section>
+
+    <section>
+        <h2>How the Live Data Works</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            This site has no traditional backend — it's just static files. Calling a football data API directly from the browser has two problems: the API key would be publicly visible in the page source, and most free APIs block direct browser requests for security reasons (CORS).
+        </p>
+        <p class="news-item" style="border:none; padding:0;">
+            To solve both at once, the site calls a small serverless function (a Cloudflare Worker) instead of the API directly. The Worker holds the real API key privately on Cloudflare's servers, forwards the request to football-data.org, and returns the data with the correct permissions for a browser to read it. The API key never appears anywhere in this site's public code.
+        </p>
+    </section>
+
+    <section>
+        <h2>The Prediction Model</h2>
+        <p class="news-item" style="border:none; padding:0;">
+            Before each fixture, the site calculates a simple, fully explainable "expected goals" prediction: each team's average goals scored and conceded over their last 6 matches is used to estimate a likely scoreline — a team's predicted goals being the average of their own attacking rate and the opponent's defensive weakness. It's deliberately simple rather than a black box, and it's tracked against my own gut predictions over time to see which is actually more accurate.
+        </p>
+    </section>
+
+    <section>
+        <h2>Reliability</h2>
+        <p class="news-item" style="border:none; padding:0;">
+            Every live feature has a fallback: if the API is ever unavailable, rate-limited, or returns nothing useful, the site quietly falls back to curated static data instead of breaking. Nothing here depends entirely on a third party staying online.
+        </p>
+    </section>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spurs News — Spurs Hub</title>
+    <title>Player Stats — Spurs Hub</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,28 +14,27 @@
         <a href="index.html">Home</a>
         <a href="club.html">Squad</a>
         <a href="season.html">Season</a>
-        <a href="stats.html">Player Stats</a>
-        <a href="news.html" class="active">Spurs News</a>
+        <a href="stats.html" class="active">Player Stats</a>
+        <a href="news.html">Spurs News</a>
         <a href="about.html">About This Project</a>
     </nav>
 
     <header>
         <p class="eyebrow">N17 · Est. 1882</p>
-        <h1>Spurs News</h1>
-        <p class="subtitle">Latest headlines, updated live</p>
+        <h1>Player Stats</h1>
+        <p class="subtitle">2026/27 Premier League</p>
     </header>
 
     <section>
-        <h2>Latest</h2>
-        <p class="kickoff-line" style="margin-bottom:14px;">Refreshes automatically every time this page loads</p>
-        <div id="spurs-news-container">
-            <p class="lineup-note">Loading latest articles…</p>
+        <h2>Top Scorers</h2>
+        <div id="player-stats-container">
+            <p class="lineup-note">Loading stats…</p>
         </div>
     </section>
 
     <script src="script.js"></script>
     <script>
-        renderSpursNewsLive(10);
+        renderPlayerStats();
     </script>
 
 </body>
