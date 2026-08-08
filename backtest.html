@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Testing — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <nav class="sidebar" id="sidebar">
+        <a href="index.html">Home</a>
+        <a href="club.html">Squad</a>
+        <a href="season.html">Season</a>
+        <a href="stats.html">Player Stats</a>
+        <a href="news.html">Spurs News</a>
+        <a href="league.html">Fan League</a>
+        <a href="backtest.html" class="active">Model Testing</a>
+        <a href="about.html">About This Project</a>
+    </nav>
+
+    <header>
+        <p class="eyebrow">Model Evaluation</p>
+        <h1>Model Testing</h1>
+        <p class="subtitle">Walk-forward backtest on a full season</p>
+    </header>
+
+    <section>
+        <h2>What This Does</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:12px;">
+            The prediction model is replayed against every match of the most recent completed
+            Premier League season. For each match, the model is rebuilt from scratch using
+            <strong>only matches that had already finished before that kickoff</strong> — it never
+            sees the result it is being asked to predict, or anything that happened afterwards.
+        </p>
+        <p class="news-item" style="border:none; padding:0;">
+            This is the difference between a model that looks accurate and one that is
+            actually tested. Building ratings from a whole season and then "predicting" matches
+            inside it would be grading its own homework.
+        </p>
+    </section>
+
+    <section style="text-align:center;">
+        <button id="backtest-run-btn" onclick="runAndRenderBacktest()"
+            style="background:var(--accent); color:#1a1200; border:none; padding:12px 28px; border-radius:8px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:0.9rem; cursor:pointer;">
+            Run Backtest
+        </button>
+        <p class="predict-status" id="backtest-status" style="margin-top:12px;">
+            Takes a few seconds — the model is rebuilt once per match.
+        </p>
+    </section>
+
+    <section>
+        <h2>Results</h2>
+        <div id="backtest-results">
+            <p class="lineup-note">Run the backtest to see results.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Parameter Tuning</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:12px;">
+            The model has three settings that could be tuned: how fast old matches lose
+            influence, how strongly thin samples are pulled toward the league average, and the
+            strength of the low-score correction. The sweep searches combinations of all three.
+        </p>
+        <p class="news-item" style="border:none; padding:0;">
+            Crucially, it tunes on <strong>one</strong> season and reports results on a
+            <strong>different</strong> season that played no part in the search. Choosing settings
+            and reporting scores on the same data is the most common way model results get
+            inflated — the gap between tuning and validation performance is the overfitting,
+            made visible.
+        </p>
+    </section>
+
+    <section style="text-align:center;">
+        <button id="sweep-run-btn" onclick="runAndRenderSweep()"
+            style="background:var(--accent); color:#1a1200; border:none; padding:12px 28px; border-radius:8px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:0.9rem; cursor:pointer;">
+            Run Parameter Sweep
+        </button>
+        <p class="predict-status" id="sweep-status" style="margin-top:12px;">
+            Runs ~30 full backtests. Takes longer than the single run above.
+        </p>
+    </section>
+
+    <section>
+        <h2>Sweep Results</h2>
+        <div id="sweep-results">
+            <p class="lineup-note">Run the sweep to see results.</p>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

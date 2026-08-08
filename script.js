@@ -793,9 +793,10 @@ function applyFixtureFilters() {
    6. Apply the Dixon-Coles correction, which fixes a known weakness of
       plain Poisson: it misprices low scores (0-0, 1-0, 0-1, 1-1).
 
-   The output is a probability distribution, not a certainty. That is
-   the honest form of a football prediction — see the accuracy note on
-   the About page.
+   Every function below takes an explicit "as of" date rather than
+   reading the clock, so the model can be replayed against historical
+   matches without ever seeing data from the future. That is what makes
+   the backtest on the Model Testing page trustworthy.
 */
 
 const MODEL_CONFIG = {
@@ -809,26 +810,48 @@ const MODEL_CONFIG = {
 };
 
 let leagueModelCache = null;
+const seasonMatchCache = {};
 
 async function fetchCompetitionMatches(season) {
+    if (seasonMatchCache[season]) return seasonMatchCache[season];
     try {
         const res = await fetch(`${PROXY_BASE}/competition-matches?season=${season}`);
         if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
         const data = await res.json();
-        return (data.matches || []).filter(m =>
+        const matches = (data.matches || []).filter(m =>
             m.status === "FINISHED" &&
             m.score && m.score.fullTime &&
             m.score.fullTime.home !== null &&
             m.score.fullTime.away !== null
         );
+        seasonMatchCache[season] = matches;
+        return matches;
     } catch (err) {
         console.warn(`Competition matches fetch failed for season ${season}:`, err);
         return [];
     }
 }
 
-function buildLeagueModel(matchGroups) {
-    const now = Date.now();
+/* Strip API results down to just what the model needs, with timestamps
+   pre-parsed — the backtest rebuilds the model hundreds of times, so
+   this keeps it fast. */
+function toLeanMatches(apiMatches) {
+    return apiMatches.map(m => ({
+        homeId: m.homeTeam.id,
+        awayId: m.awayTeam.id,
+        homeName: m.homeTeam.shortName || m.homeTeam.name,
+        awayName: m.awayTeam.shortName || m.awayTeam.name,
+        hg: m.score.fullTime.home,
+        ag: m.score.fullTime.away,
+        ts: new Date(m.utcDate).getTime()
+    })).sort((a, b) => a.ts - b.ts);
+}
+
+/* asOfTs: matches are aged relative to this moment. Passing the kickoff
+   time of the fixture being predicted is what prevents lookahead bias. */
+function buildLeagueModel(matchGroups, asOfTs, cfg) {
+    cfg = cfg || MODEL_CONFIG;
+    const reference = asOfTs || Date.now();
     const teams = {};
     let leagueHomeGoals = 0, leagueAwayGoals = 0, leagueWeight = 0, rawMatchCount = 0;
 
@@ -845,27 +868,25 @@ function buildLeagueModel(matchGroups) {
 
     matchGroups.forEach(group => {
         group.matches.forEach(m => {
-            const hg = m.score.fullTime.home;
-            const ag = m.score.fullTime.away;
-
-            const daysAgo = (now - new Date(m.utcDate).getTime()) / 86400000;
-            const decay = Math.pow(0.5, Math.max(0, daysAgo) / MODEL_CONFIG.halfLifeDays);
+            const daysAgo = (reference - m.ts) / 86400000;
+            if (daysAgo <= 0) return; // never use a match from the future, or this one
+            const decay = Math.pow(0.5, daysAgo / cfg.halfLifeDays);
             const w = group.weight * decay;
             if (!(w > 0)) return;
 
-            const home = ensureTeam(m.homeTeam.id, m.homeTeam.shortName || m.homeTeam.name);
-            const away = ensureTeam(m.awayTeam.id, m.awayTeam.shortName || m.awayTeam.name);
+            const home = ensureTeam(m.homeId, m.homeName);
+            const away = ensureTeam(m.awayId, m.awayName);
 
-            home.homeFor += hg * w;
-            home.homeAgainst += ag * w;
+            home.homeFor += m.hg * w;
+            home.homeAgainst += m.ag * w;
             home.homeWeight += w;
 
-            away.awayFor += ag * w;
-            away.awayAgainst += hg * w;
+            away.awayFor += m.ag * w;
+            away.awayAgainst += m.hg * w;
             away.awayWeight += w;
 
-            leagueHomeGoals += hg * w;
-            leagueAwayGoals += ag * w;
+            leagueHomeGoals += m.hg * w;
+            leagueAwayGoals += m.ag * w;
             leagueWeight += w;
             rawMatchCount++;
         });
@@ -875,7 +896,7 @@ function buildLeagueModel(matchGroups) {
 
     const leagueHomeAvg = Math.max(0.2, leagueHomeGoals / leagueWeight);
     const leagueAwayAvg = Math.max(0.2, leagueAwayGoals / leagueWeight);
-    const k = MODEL_CONFIG.shrinkageMatches;
+    const k = cfg.shrinkageMatches;
 
     Object.keys(teams).forEach(id => {
         const t = teams[id];
@@ -908,14 +929,14 @@ function buildLeagueModel(matchGroups) {
 async function getLeagueModel() {
     if (leagueModelCache) return leagueModelCache;
 
-    const [currentMatches, previousMatches] = await Promise.all([
+    const [currentRaw, previousRaw] = await Promise.all([
         fetchCompetitionMatches(MODEL_CONFIG.currentSeason),
         fetchCompetitionMatches(MODEL_CONFIG.previousSeason)
     ]);
 
     const model = buildLeagueModel([
-        { matches: currentMatches, weight: 1.0 },
-        { matches: previousMatches, weight: MODEL_CONFIG.previousSeasonWeight }
+        { matches: toLeanMatches(currentRaw), weight: 1.0 },
+        { matches: toLeanMatches(previousRaw), weight: MODEL_CONFIG.previousSeasonWeight }
     ]);
 
     leagueModelCache = model;
@@ -941,17 +962,27 @@ function dixonColesTau(x, y, lambda, mu, rho) {
     return 1;
 }
 
-function buildScoreMatrix(lambdaHome, lambdaAway) {
-    const N = MODEL_CONFIG.maxGoals;
-    const rho = MODEL_CONFIG.rho;
+function poissonVector(lambda, n) {
+    const v = new Array(n + 1);
+    for (let k = 0; k <= n; k++) v[k] = poissonPmf(k, lambda);
+    return v;
+}
+
+function buildScoreMatrix(lambdaHome, lambdaAway, cfg) {
+    cfg = cfg || MODEL_CONFIG;
+    const N = cfg.maxGoals;
+    const rho = cfg.rho;
     const matrix = [];
     let total = 0;
+
+    // Precompute each side's goal probabilities once instead of inside the loop
+    const pH = poissonVector(lambdaHome, N);
+    const pA = poissonVector(lambdaAway, N);
 
     for (let x = 0; x <= N; x++) {
         matrix[x] = [];
         for (let y = 0; y <= N; y++) {
-            let p = poissonPmf(x, lambdaHome) *
-                    poissonPmf(y, lambdaAway) *
+            let p = pH[x] * pA[y] *
                     dixonColesTau(x, y, lambdaHome, lambdaAway, rho);
             if (!(p > 0)) p = 0;
             matrix[x][y] = p;
@@ -965,6 +996,80 @@ function buildScoreMatrix(lambdaHome, lambdaAway) {
         }
     }
     return matrix;
+}
+
+const NEUTRAL_TEAM = {
+    attackHome: 1, defenceHome: 1, attackAway: 1, defenceAway: 1, dataConfidence: 0
+};
+
+/* Core prediction: always expressed from the HOME team's perspective. */
+function predictFixture(model, homeTeamId, awayTeamId, cfg) {
+    cfg = cfg || MODEL_CONFIG;
+    const home = model.teams[homeTeamId] || NEUTRAL_TEAM;
+    const away = model.teams[awayTeamId] || NEUTRAL_TEAM;
+
+    const lambdaHome = model.leagueHomeAvg * home.attackHome * away.defenceAway;
+    const lambdaAway = model.leagueAwayAvg * away.attackAway * home.defenceHome;
+
+    const matrix = buildScoreMatrix(lambdaHome, lambdaAway, cfg);
+    const N = cfg.maxGoals;
+
+    let pHomeWin = 0, pDraw = 0, pAwayWin = 0;
+    const scorelines = [];
+
+    for (let x = 0; x <= N; x++) {
+        for (let y = 0; y <= N; y++) {
+            const p = matrix[x][y];
+            if (x > y) pHomeWin += p;
+            else if (x === y) pDraw += p;
+            else pAwayWin += p;
+            scorelines.push({ home: x, away: y, p: p });
+        }
+    }
+
+    scorelines.sort((a, b) => b.p - a.p);
+
+    return {
+        lambdaHome: lambdaHome,
+        lambdaAway: lambdaAway,
+        pHomeWin: pHomeWin,
+        pDraw: pDraw,
+        pAwayWin: pAwayWin,
+        scorelines: scorelines,
+        best: scorelines[0],
+        confidence: Math.min(home.dataConfidence, away.dataConfidence)
+    };
+}
+
+async function computeModelPrediction(opponentTeamId, spursAtHome) {
+    const model = await getLeagueModel();
+    if (!model) return null;
+
+    const homeId = spursAtHome ? SPURS_TEAM_ID : opponentTeamId;
+    const awayId = spursAtHome ? opponentTeamId : SPURS_TEAM_ID;
+    const f = predictFixture(model, homeId, awayId);
+
+    // Re-express everything from Tottenham's point of view
+    const topScorelines = f.scorelines.slice(0, 3).map(s => ({
+        spurs: spursAtHome ? s.home : s.away,
+        opponent: spursAtHome ? s.away : s.home,
+        probability: s.p
+    }));
+
+    return {
+        spursExpected: spursAtHome ? f.lambdaHome : f.lambdaAway,
+        oppExpected: spursAtHome ? f.lambdaAway : f.lambdaHome,
+        spursRounded: spursAtHome ? f.best.home : f.best.away,
+        oppRounded: spursAtHome ? f.best.away : f.best.home,
+        pSpursWin: spursAtHome ? f.pHomeWin : f.pAwayWin,
+        pDraw: f.pDraw,
+        pOppWin: spursAtHome ? f.pAwayWin : f.pHomeWin,
+        topScorelines: topScorelines,
+        spursAtHome: spursAtHome,
+        confidence: f.confidence,
+        matchesUsed: model.matchesUsed,
+        sampleSize: model.matchesUsed
+    };
 }
 
 function renderModelProbabilities(prediction, opponentName) {
@@ -999,74 +1104,553 @@ function renderModelProbabilities(prediction, opponentName) {
     `;
 }
 
-const NEUTRAL_TEAM = {
-    attackHome: 1, defenceHome: 1, attackAway: 1, defenceAway: 1, dataConfidence: 0
-};
+/* ---------- Walk-forward backtest ---------- */
+/*
+   For every match in the test season, the model is rebuilt using ONLY
+   matches that had already finished before that kickoff. It then makes
+   a prediction and is scored against what actually happened. No match
+   ever contributes to the model that predicts it.
 
-async function computeModelPrediction(opponentTeamId, spursAtHome) {
-    const model = await getLeagueModel();
-    if (!model) return null;
+   Metrics reported:
 
-    const spurs = model.teams[SPURS_TEAM_ID] || NEUTRAL_TEAM;
-    const opp = model.teams[opponentTeamId] || NEUTRAL_TEAM;
+   - Outcome accuracy: how often the most likely result was right.
+   - Exact scoreline: how often the single most likely scoreline was right.
+   - Log loss: the standard scoring rule for probability forecasts.
+     Lower is better. Punishes confident wrong answers heavily.
+   - RPS (Ranked Probability Score): the football-forecasting standard.
+     It understands that H/D/A is ordered, so predicting a draw when the
+     home side won is a smaller error than predicting an away win.
+   - Calibration: when the model says 60%, does it happen ~60% of the time?
 
-    // Expected goals for this specific fixture, respecting who is at home.
-    let lambdaHome, lambdaAway;
-    if (spursAtHome) {
-        lambdaHome = model.leagueHomeAvg * spurs.attackHome * opp.defenceAway;
-        lambdaAway = model.leagueAwayAvg * opp.attackAway * spurs.defenceHome;
-    } else {
-        lambdaHome = model.leagueHomeAvg * opp.attackHome * spurs.defenceAway;
-        lambdaAway = model.leagueAwayAvg * spurs.attackAway * opp.defenceHome;
+   Everything is compared against naive baselines, because a model that
+   can't beat "always pick the home team" is not adding anything.
+*/
+
+function outcomeIndex(hg, ag) {
+    if (hg > ag) return 0; // home
+    if (hg === ag) return 1; // draw
+    return 2; // away
+}
+
+function rankedProbabilityScore(probs, actualIdx) {
+    // probs ordered [home, draw, away]; both are cumulative-summed
+    let cumP = 0, cumA = 0, sum = 0;
+    for (let i = 0; i < 2; i++) { // r-1 terms
+        cumP += probs[i];
+        cumA += (i === actualIdx) ? 1 : 0;
+        sum += Math.pow(cumP - cumA, 2);
+    }
+    return sum / 2;
+}
+
+async function runBacktest(testSeason, priorSeason, onProgress, cfg) {
+    cfg = cfg || MODEL_CONFIG;
+    const [testRaw, priorRaw] = await Promise.all([
+        fetchCompetitionMatches(testSeason),
+        fetchCompetitionMatches(priorSeason)
+    ]);
+
+    if (testRaw.length === 0) {
+        return { error: `No finished matches found for the ${testSeason}/${String(testSeason + 1).slice(2)} season.` };
     }
 
-    const matrix = buildScoreMatrix(lambdaHome, lambdaAway);
-    const N = MODEL_CONFIG.maxGoals;
+    const testMatches = toLeanMatches(testRaw);
+    const priorMatches = toLeanMatches(priorRaw);
 
-    let pHomeWin = 0, pDraw = 0, pAwayWin = 0;
-    const scorelines = [];
+    // Base rates from the prior season, used as one of the baselines
+    let priorH = 0, priorD = 0, priorA = 0;
+    priorMatches.forEach(m => {
+        const o = outcomeIndex(m.hg, m.ag);
+        if (o === 0) priorH++; else if (o === 1) priorD++; else priorA++;
+    });
+    const priorTotal = Math.max(1, priorMatches.length);
+    const baseRates = priorMatches.length > 0
+        ? [priorH / priorTotal, priorD / priorTotal, priorA / priorTotal]
+        : [0.45, 0.26, 0.29];
 
-    for (let x = 0; x <= N; x++) {
-        for (let y = 0; y <= N; y++) {
-            const p = matrix[x][y];
-            if (x > y) pHomeWin += p;
-            else if (x === y) pDraw += p;
-            else pAwayWin += p;
-            scorelines.push({ home: x, away: y, p: p });
+    let n = 0;
+    let correctOutcome = 0, correctScore = 0;
+    let logLoss = 0, rps = 0;
+    let baseHomeCorrect = 0, baseRateLogLoss = 0, baseRateRps = 0, uniformLogLoss = 0;
+    const calibBuckets = Array.from({ length: 10 }, () => ({ predSum: 0, hits: 0, n: 0 }));
+    const perMatch = [];
+
+    for (let i = 0; i < testMatches.length; i++) {
+        const m = testMatches[i];
+
+        // Training data: everything finished strictly before this kickoff
+        const priorTrain = priorMatches.filter(p => p.ts < m.ts);
+        const seasonTrain = testMatches.slice(0, i).filter(p => p.ts < m.ts);
+
+        const model = buildLeagueModel([
+            { matches: seasonTrain, weight: 1.0 },
+            { matches: priorTrain, weight: cfg.previousSeasonWeight }
+        ], m.ts, cfg);
+
+        if (!model) continue;
+
+        const f = predictFixture(model, m.homeId, m.awayId, cfg);
+        const probs = [f.pHomeWin, f.pDraw, f.pAwayWin];
+        const actualIdx = outcomeIndex(m.hg, m.ag);
+
+        // Model metrics
+        const predIdx = probs.indexOf(Math.max(...probs));
+        if (predIdx === actualIdx) correctOutcome++;
+        if (f.best.home === m.hg && f.best.away === m.ag) correctScore++;
+
+        const pActual = Math.max(1e-12, probs[actualIdx]);
+        logLoss += -Math.log(pActual);
+        rps += rankedProbabilityScore(probs, actualIdx);
+
+        // Baselines
+        if (actualIdx === 0) baseHomeCorrect++;
+        baseRateLogLoss += -Math.log(Math.max(1e-12, baseRates[actualIdx]));
+        baseRateRps += rankedProbabilityScore(baseRates, actualIdx);
+        uniformLogLoss += -Math.log(1 / 3);
+
+        // Calibration: each match contributes all three of its probabilities
+        for (let k = 0; k < 3; k++) {
+            const p = probs[k];
+            const b = Math.min(9, Math.floor(p * 10));
+            calibBuckets[b].predSum += p;
+            calibBuckets[b].hits += (k === actualIdx) ? 1 : 0;
+            calibBuckets[b].n++;
+        }
+
+        perMatch.push({
+            homeName: m.homeName, awayName: m.awayName,
+            hg: m.hg, ag: m.ag,
+            probs: probs, predIdx: predIdx, actualIdx: actualIdx
+        });
+
+        n++;
+        if (onProgress && n % 40 === 0) {
+            onProgress(n, testMatches.length);
+            await new Promise(r => setTimeout(r, 0)); // let the UI breathe
         }
     }
 
-    scorelines.sort((a, b) => b.p - a.p);
-    const best = scorelines[0];
-
-    // Re-express everything from Tottenham's point of view
-    const spursExpected = spursAtHome ? lambdaHome : lambdaAway;
-    const oppExpected = spursAtHome ? lambdaAway : lambdaHome;
-    const spursRounded = spursAtHome ? best.home : best.away;
-    const oppRounded = spursAtHome ? best.away : best.home;
-    const pSpursWin = spursAtHome ? pHomeWin : pAwayWin;
-    const pOppWin = spursAtHome ? pAwayWin : pHomeWin;
-
-    const topScorelines = scorelines.slice(0, 3).map(s => ({
-        spurs: spursAtHome ? s.home : s.away,
-        opponent: spursAtHome ? s.away : s.home,
-        probability: s.p
-    }));
+    if (n === 0) return { error: "Not enough data to run a backtest." };
 
     return {
-        spursExpected: spursExpected,
-        oppExpected: oppExpected,
-        spursRounded: spursRounded,
-        oppRounded: oppRounded,
-        pSpursWin: pSpursWin,
-        pDraw: pDraw,
-        pOppWin: pOppWin,
-        topScorelines: topScorelines,
-        spursAtHome: spursAtHome,
-        confidence: Math.min(spurs.dataConfidence, opp.dataConfidence),
-        matchesUsed: model.matchesUsed,
-        sampleSize: model.matchesUsed
+        matchesTested: n,
+        outcomeAccuracy: correctOutcome / n,
+        exactScoreAccuracy: correctScore / n,
+        logLoss: logLoss / n,
+        rps: rps / n,
+        baselineHomeAccuracy: baseHomeCorrect / n,
+        baselineRateLogLoss: baseRateLogLoss / n,
+        baselineRateRps: baseRateRps / n,
+        uniformLogLoss: uniformLogLoss / n,
+        calibration: calibBuckets.map((b, i) => ({
+            range: `${i * 10}–${i * 10 + 10}%`,
+            predicted: b.n > 0 ? b.predSum / b.n : null,
+            observed: b.n > 0 ? b.hits / b.n : null,
+            n: b.n
+        })).filter(b => b.n > 0),
+        perMatch: perMatch
     };
+}
+/* ---------- Backtest page rendering ---------- */
+
+function pct(x) { return (x * 100).toFixed(1) + "%"; }
+
+function verdictTag(better) {
+    return better
+        ? `<span class="tag correct">Beats baseline</span>`
+        : `<span class="tag wrong">Loses to baseline</span>`;
+}
+
+async function runAndRenderBacktest() {
+    const btn = document.getElementById("backtest-run-btn");
+    const status = document.getElementById("backtest-status");
+    const out = document.getElementById("backtest-results");
+    if (!out) return;
+
+    btn.disabled = true;
+    btn.textContent = "Running…";
+    out.innerHTML = "";
+    status.textContent = "Fetching match data…";
+
+    const testSeason = MODEL_CONFIG.previousSeason;      // most recent complete season
+    const priorSeason = MODEL_CONFIG.previousSeason - 1; // the one before it
+
+    const r = await runBacktest(testSeason, priorSeason, (done, total) => {
+        status.textContent = `Replaying match ${done} of ${total}…`;
+    });
+
+    btn.disabled = false;
+    btn.textContent = "Run Backtest";
+
+    if (r.error) {
+        status.textContent = "";
+        out.innerHTML = `<p class="lineup-note">${r.error}</p>`;
+        return;
+    }
+
+    status.textContent = `Replayed ${r.matchesTested} matches from the ${testSeason}/${String(testSeason + 1).slice(2)} season.`;
+
+    const accBetter = r.outcomeAccuracy > r.baselineHomeAccuracy;
+    const llBetter = r.logLoss < r.baselineRateLogLoss;
+    const rpsBetter = r.rps < r.baselineRateRps;
+
+    const calibRows = r.calibration.map(b => `
+        <tr>
+            <td>${b.range}</td>
+            <td>${pct(b.predicted)}</td>
+            <td>${pct(b.observed)}</td>
+            <td>${b.n}</td>
+        </tr>
+    `).join("");
+
+    out.innerHTML = `
+        <div class="stat-grid" style="margin-bottom:18px;">
+            <div class="stat-box">
+                <div class="stat-value">${pct(r.outcomeAccuracy)}</div>
+                <div class="stat-label">Outcome accuracy</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${pct(r.exactScoreAccuracy)}</div>
+                <div class="stat-label">Exact scoreline</div>
+            </div>
+        </div>
+
+        <h3>Model vs naive baselines</h3>
+        <div class="table-scroll">
+            <table class="league-table">
+                <thead>
+                    <tr><th>Metric</th><th>Model</th><th>Baseline</th><th>Verdict</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align:left;">Outcome accuracy</td>
+                        <td>${pct(r.outcomeAccuracy)}</td>
+                        <td>${pct(r.baselineHomeAccuracy)} <span class="lineup-note">always home</span></td>
+                        <td>${verdictTag(accBetter)}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left;">Log loss <span class="lineup-note">lower is better</span></td>
+                        <td>${r.logLoss.toFixed(4)}</td>
+                        <td>${r.baselineRateLogLoss.toFixed(4)} <span class="lineup-note">base rates</span></td>
+                        <td>${verdictTag(llBetter)}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left;">RPS <span class="lineup-note">lower is better</span></td>
+                        <td>${r.rps.toFixed(4)}</td>
+                        <td>${r.baselineRateRps.toFixed(4)} <span class="lineup-note">base rates</span></td>
+                        <td>${verdictTag(rpsBetter)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Calibration</h3>
+        <p class="lineup-note" style="margin-bottom:10px;">
+            When the model says something is X% likely, does it happen X% of the time?
+            The two middle columns should track each other closely.
+        </p>
+        <div class="table-scroll">
+            <table class="league-table">
+                <thead>
+                    <tr><th>Confidence</th><th>Predicted</th><th>Observed</th><th>n</th></tr>
+                </thead>
+                <tbody>${calibRows}</tbody>
+            </table>
+        </div>
+
+        <h3>Reading these numbers</h3>
+        <p class="lineup-note" style="line-height:1.7;">
+            Log loss and RPS are proper scoring rules — they reward being well-calibrated,
+            not just being right. Raw accuracy is a poor measure of a probabilistic forecast:
+            a model can lose on accuracy while still being more informative, because accuracy
+            throws away everything except which outcome was ranked first. Beating the base-rate
+            baseline on log loss and RPS is the meaningful result here.
+        </p>
+    `;
+}
+
+/* ---------- Parameter sweep with held-out validation ---------- */
+/*
+   The cardinal sin of model tuning is choosing parameters using the same
+   data you then report results on. Do that and your numbers are
+   meaningless — you have simply found the settings that best memorise
+   one particular season.
+
+   So this splits the work strictly in two:
+
+     TUNING season    — parameters are chosen here, by log loss.
+     VALIDATION season — never consulted while choosing. Reported honestly.
+
+   The headline number is validation performance. If tuning helped, it
+   will show there. If it only helped on the tuning season, that was
+   overfitting and the validation numbers will expose it — which is
+   exactly what this is for.
+
+   The search is staged (coordinate descent) rather than exhaustive:
+   recency and shrinkage govern the team ratings, while rho only affects
+   the scoreline matrix, so they can be searched largely independently.
+   That keeps it to ~30 backtests instead of hundreds.
+*/
+
+const SWEEP_GRID = {
+    halfLifeDays: [90, 150, 220, 320, 450],
+    shrinkageMatches: [2, 4, 6, 10, 16],
+    rho: [-0.15, -0.10, -0.05, 0, 0.05]
+};
+
+function cloneConfig(overrides) {
+    return Object.assign({}, MODEL_CONFIG, overrides || {});
+}
+
+async function runParameterSweep(tuneSeason, tunePrior, validSeason, validPrior, onProgress) {
+    const trials = [];
+    const totalTrials = (SWEEP_GRID.halfLifeDays.length * SWEEP_GRID.shrinkageMatches.length)
+                      + SWEEP_GRID.rho.length;
+    let done = 0;
+
+    async function evaluate(overrides) {
+        const cfg = cloneConfig(overrides);
+        const r = await runBacktest(tuneSeason, tunePrior, null, cfg);
+        done++;
+        if (onProgress) {
+            onProgress(done, totalTrials);
+            await new Promise(res => setTimeout(res, 0));
+        }
+        if (r.error) return null;
+        return { overrides: overrides, cfg: cfg, logLoss: r.logLoss, rps: r.rps, accuracy: r.outcomeAccuracy };
+    }
+
+    // Stage 1 — recency half-life x shrinkage, rho held at its default
+    let best = null;
+    for (const hl of SWEEP_GRID.halfLifeDays) {
+        for (const sh of SWEEP_GRID.shrinkageMatches) {
+            const t = await evaluate({ halfLifeDays: hl, shrinkageMatches: sh });
+            if (!t) continue;
+            trials.push(t);
+            if (!best || t.logLoss < best.logLoss) best = t;
+        }
+    }
+    if (!best) return { error: "Sweep failed — no usable data for the tuning season." };
+
+    // Stage 2 — rho, with the stage 1 winner fixed
+    let bestRho = null;
+    for (const rho of SWEEP_GRID.rho) {
+        const t = await evaluate({
+            halfLifeDays: best.overrides.halfLifeDays,
+            shrinkageMatches: best.overrides.shrinkageMatches,
+            rho: rho
+        });
+        if (!t) continue;
+        trials.push(t);
+        if (!bestRho || t.logLoss < bestRho.logLoss) bestRho = t;
+    }
+
+    const tunedOverrides = bestRho ? bestRho.overrides : best.overrides;
+    const tunedCfg = cloneConfig(tunedOverrides);
+
+    // Held-out validation — this season played no part in choosing anything
+    if (onProgress) onProgress(totalTrials, totalTrials);
+    const validDefault = await runBacktest(validSeason, validPrior, null, MODEL_CONFIG);
+    const validTuned = await runBacktest(validSeason, validPrior, null, tunedCfg);
+
+    if (validDefault.error || validTuned.error) {
+        return { error: "Sweep completed but the validation season could not be scored." };
+    }
+
+    return {
+        tuneSeason: tuneSeason,
+        validSeason: validSeason,
+        trialsRun: trials.length,
+        tunedParams: tunedOverrides,
+        defaultParams: {
+            halfLifeDays: MODEL_CONFIG.halfLifeDays,
+            shrinkageMatches: MODEL_CONFIG.shrinkageMatches,
+            rho: MODEL_CONFIG.rho
+        },
+        tuningLogLossDefault: trials.length ? null : null,
+        bestTuningLogLoss: (bestRho || best).logLoss,
+        validation: {
+            defaultResult: validDefault,
+            tunedResult: validTuned
+        }
+    };
+}
+
+async function runAndRenderSweep() {
+    const btn = document.getElementById("sweep-run-btn");
+    const status = document.getElementById("sweep-status");
+    const out = document.getElementById("sweep-results");
+    if (!out) return;
+
+    btn.disabled = true;
+    btn.textContent = "Running…";
+    out.innerHTML = "";
+    status.textContent = "Starting parameter search…";
+
+    const validSeason = MODEL_CONFIG.previousSeason;       // held out
+    const validPrior = validSeason - 1;
+    const tuneSeason = validSeason - 1;                    // tuned on an earlier season
+    const tunePrior = tuneSeason - 1;
+
+    const r = await runParameterSweep(tuneSeason, tunePrior, validSeason, validPrior,
+        (done, total) => {
+            status.textContent = `Trial ${done} of ${total} on the ${tuneSeason}/${String(tuneSeason + 1).slice(2)} tuning season…`;
+        });
+
+    btn.disabled = false;
+    btn.textContent = "Run Parameter Sweep";
+
+    if (r.error) {
+        status.textContent = "";
+        out.innerHTML = `<p class="lineup-note">${r.error} This usually means the API tier doesn't provide data that far back.</p>`;
+        return;
+    }
+
+    const d = r.validation.defaultResult;
+    const t = r.validation.tunedResult;
+
+    // Paired significance test on held-out per-match losses
+    const test = pairedComparison(perMatchLogLoss(d), perMatchLogLoss(t));
+    const significant = test && test.p < 0.05 && test.mean > 0;
+
+    const llDelta = d.logLoss - t.logLoss;
+    const rpsDelta = d.rps - t.rps;
+
+    // Boundary check — a winner sitting at the edge of the grid is suspect
+    const boundaryFlags = [];
+    if (isAtGridBoundary(r.tunedParams.halfLifeDays, SWEEP_GRID.halfLifeDays)) boundaryFlags.push("recency half-life");
+    if (isAtGridBoundary(r.tunedParams.shrinkageMatches, SWEEP_GRID.shrinkageMatches)) boundaryFlags.push("shrinkage");
+    if (r.tunedParams.rho !== undefined && isAtGridBoundary(r.tunedParams.rho, SWEEP_GRID.rho)) boundaryFlags.push("rho");
+
+    status.textContent = `${r.trialsRun} configurations tested on ${r.tuneSeason}/${String(r.tuneSeason + 1).slice(2)}, then scored on the untouched ${r.validSeason}/${String(r.validSeason + 1).slice(2)} season.`;
+
+    function deltaTag(delta, sig) {
+        if (!sig) return `<span class="tag pending">Within noise</span>`;
+        return delta > 0 ? `<span class="tag correct">Real gain</span>` : `<span class="tag wrong">Real loss</span>`;
+    }
+
+    out.innerHTML = `
+        <h3>Chosen parameters</h3>
+        <div class="table-scroll">
+            <table class="league-table">
+                <thead><tr><th>Parameter</th><th>Default</th><th>Tuned</th></tr></thead>
+                <tbody>
+                    <tr><td style="text-align:left;">Recency half-life (days)</td><td>${r.defaultParams.halfLifeDays}</td><td>${r.tunedParams.halfLifeDays}</td></tr>
+                    <tr><td style="text-align:left;">Shrinkage strength</td><td>${r.defaultParams.shrinkageMatches}</td><td>${r.tunedParams.shrinkageMatches}</td></tr>
+                    <tr><td style="text-align:left;">Dixon-Coles rho</td><td>${r.defaultParams.rho}</td><td>${r.tunedParams.rho !== undefined ? r.tunedParams.rho : r.defaultParams.rho}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        ${boundaryFlags.length ? `<p class="lineup-note" style="margin-top:10px;">
+            ⚠ Chosen value sits at the edge of the search grid for: ${boundaryFlags.join(", ")}.
+            Boundary solutions often mean the search was chasing noise rather than finding a true optimum.
+        </p>` : ""}
+
+        <h3>Held-out validation — ${r.validSeason}/${String(r.validSeason + 1).slice(2)}</h3>
+        <p class="lineup-note" style="margin-bottom:10px;">
+            This season took no part in choosing the parameters above. These are the honest numbers.
+        </p>
+        <div class="table-scroll">
+            <table class="league-table">
+                <thead><tr><th>Metric</th><th>Default</th><th>Tuned</th><th>Verdict</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align:left;">Log loss</td>
+                        <td>${d.logLoss.toFixed(4)}</td>
+                        <td>${t.logLoss.toFixed(4)}</td>
+                        <td>${deltaTag(llDelta, significant)}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left;">RPS</td>
+                        <td>${d.rps.toFixed(4)}</td>
+                        <td>${t.rps.toFixed(4)}</td>
+                        <td>${deltaTag(rpsDelta, significant)}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:left;">Outcome accuracy</td>
+                        <td>${pct(d.outcomeAccuracy)}</td>
+                        <td>${pct(t.outcomeAccuracy)}</td>
+                        <td><span class="lineup-note">not a proper scoring rule</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Significance test</h3>
+        <p class="lineup-note" style="margin-bottom:10px;">
+            Paired comparison of per-match log loss across the ${test ? test.n : 0} held-out matches.
+            Pairing removes match difficulty from the comparison, making the test more sensitive.
+        </p>
+        <div class="table-scroll">
+            <table class="league-table">
+                <thead><tr><th>Mean difference</th><th>Std. error</th><th>z</th><th>p-value</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td>${test ? test.mean.toFixed(5) : "—"}</td>
+                        <td>${test ? test.se.toFixed(5) : "—"}</td>
+                        <td>${test ? test.z.toFixed(2) : "—"}</td>
+                        <td>${test ? test.p.toFixed(3) : "—"}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Verdict</h3>
+        <p class="lineup-note" style="line-height:1.7;">
+            ${significant
+                ? `The tuned settings produced a statistically significant improvement on data they were never fitted to (p = ${test.p.toFixed(3)}). The gain is real rather than memorised, and the settings are worth adopting.`
+                : `The difference between tuned and default settings is <strong>not statistically significant</strong>${test ? ` (p = ${test.p.toFixed(3)})` : ""} — it is indistinguishable from noise on a sample this size. The apparent gains on the tuning season did not survive contact with held-out data.
+                   <br><br>
+                   The defaults are keeping their place. This is a real and common result, not a failure: most parameter tuning on a few hundred football matches finds noise, and the value of running this test is knowing that rather than quietly reporting the flattering number.`}
+        </p>
+    `;
+}
+
+/* ---------- Statistical helpers ---------- */
+
+/* Normal CDF (Abramowitz & Stegun 26.2.17) — used to turn a z-score
+   into a p-value without pulling in a stats library. */
+function normalCdf(z) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989422804014327 * Math.exp(-z * z / 2);
+    const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 +
+              t * (-1.821255978 + t * 1.330274429))));
+    return z > 0 ? 1 - p : p;
+}
+
+function perMatchLogLoss(result) {
+    return result.perMatch.map(m => -Math.log(Math.max(1e-12, m.probs[m.actualIdx])));
+}
+
+/* Paired comparison of two models on the SAME matches. Pairing matters:
+   it removes match difficulty as a source of variance, so the test is
+   far more sensitive than comparing two independent averages. */
+function pairedComparison(lossesA, lossesB) {
+    const n = Math.min(lossesA.length, lossesB.length);
+    if (n < 2) return null;
+
+    let sum = 0;
+    const diffs = new Array(n);
+    for (let i = 0; i < n; i++) {
+        diffs[i] = lossesA[i] - lossesB[i]; // positive => B is better
+        sum += diffs[i];
+    }
+    const mean = sum / n;
+
+    let ss = 0;
+    for (let i = 0; i < n; i++) ss += Math.pow(diffs[i] - mean, 2);
+    const sd = Math.sqrt(ss / (n - 1));
+    const se = sd / Math.sqrt(n);
+
+    if (!(se > 0)) return { mean: mean, se: 0, z: 0, p: 1, n: n };
+
+    const z = mean / se;
+    const p = 2 * (1 - normalCdf(Math.abs(z)));
+    return { mean: mean, se: se, z: z, p: p, n: n };
+}
+
+function isAtGridBoundary(value, gridValues) {
+    return value === gridValues[0] || value === gridValues[gridValues.length - 1];
 }
 
 /* ---------- Player stats (top scorers) ---------- */
