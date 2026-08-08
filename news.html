@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spurs News — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
     <nav class="sidebar" id="sidebar">
         <a href="index.html">Home</a>
@@ -16,6 +18,7 @@
         <a href="season.html">Season</a>
         <a href="stats.html">Player Stats</a>
         <a href="news.html" class="active">Spurs News</a>
+        <a href="league.html">Fan League</a>
         <a href="about.html">About This Project</a>
     </nav>
 

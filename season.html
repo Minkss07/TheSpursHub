@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Season — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
     <nav class="sidebar" id="sidebar">
         <a href="index.html">Home</a>
@@ -16,6 +18,7 @@
         <a href="season.html" class="active">Season</a>
         <a href="stats.html">Player Stats</a>
         <a href="news.html">Spurs News</a>
+        <a href="league.html">Fan League</a>
         <a href="about.html">About This Project</a>
     </nav>
 
@@ -34,6 +37,14 @@
 
     <section>
         <h2>Full Fixture List</h2>
+        <div class="filter-bar">
+            <input type="text" id="fixture-search" class="search-input" placeholder="Search by opponent…" oninput="applyFixtureFilters()">
+            <div class="filter-pills" id="season-filter-pills">
+                <button class="filter-pill active" data-filter="all" onclick="setFixtureStatusFilter('all')">All</button>
+                <button class="filter-pill" data-filter="played" onclick="setFixtureStatusFilter('played')">Played</button>
+                <button class="filter-pill" data-filter="upcoming" onclick="setFixtureStatusFilter('upcoming')">Upcoming</button>
+            </div>
+        </div>
         <div id="season-fixtures-container">
             <p class="lineup-note">Loading fixtures…</p>
         </div>

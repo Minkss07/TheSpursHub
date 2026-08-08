@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fan League — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <nav class="sidebar" id="sidebar">
+        <a href="index.html">Home</a>
+        <a href="club.html">Squad</a>
+        <a href="season.html">Season</a>
+        <a href="stats.html">Player Stats</a>
+        <a href="news.html">Spurs News</a>
+        <a href="league.html" class="active">Fan League</a>
+        <a href="about.html">About This Project</a>
+    </nav>
+
+    <header>
+        <p class="eyebrow">N17 · Est. 1882</p>
+        <h1>Fan League</h1>
+        <p class="subtitle">Predict with friends, shared leaderboard</p>
+    </header>
+
+    <section>
+        <div id="fan-league-name-gate" class="name-gate">
+            <h2 style="margin-bottom:12px;">Pick a Name</h2>
+            <p class="lineup-note" style="margin-bottom:14px;">
+                Your name and predictions will be visible to everyone who uses this leaderboard. Don't use anything private.
+            </p>
+            <input type="text" id="fan-league-name-input" placeholder="e.g. Max" maxlength="30">
+            <button id="fan-league-name-save" style="width:100%; background:var(--accent); color:#1a1200; border:none; padding:11px; border-radius:8px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; cursor:pointer;">Join</button>
+        </div>
+
+        <div id="fan-league-main" style="display:none;">
+            <p class="kickoff-line" style="margin-bottom:14px;">Playing as <strong id="fan-league-current-name"></strong></p>
+
+            <h2 id="fan-league-fixture-label">Loading fixture…</h2>
+            <div id="fan-league-predict-form" class="predict-inputs" style="margin-bottom:12px;">
+                <span>THFC</span>
+                <input type="number" id="fan-predHome" min="0" value="0">
+                <span>-</span>
+                <input type="number" id="fan-predAway" min="0" value="0">
+                <span>Opponent</span>
+            </div>
+            <button id="fan-league-save-btn" style="background:var(--accent); color:#1a1200; border:none; padding:10px 20px; border-radius:8px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; cursor:pointer;">Submit Prediction</button>
+            <p class="predict-status" id="fan-league-submit-status"></p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Leaderboard</h2>
+        <div id="fan-league-leaderboard">
+            <p class="lineup-note">Loading…</p>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+    <script>
+        initFanLeaguePage();
+    </script>
+
+</body>
+</html>

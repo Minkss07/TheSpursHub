@@ -1,3 +1,24 @@
+/* ---------- Theme toggle (dark / light) ---------- */
+
+function applyStoredTheme() {
+    const stored = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", stored);
+    updateThemeButtonIcon(stored);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute("data-theme") || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+    updateThemeButtonIcon(next);
+}
+
+function updateThemeButtonIcon(theme) {
+    const btn = document.getElementById("theme-toggle-btn");
+    if (btn) btn.textContent = theme === "dark" ? "☀" : "🌙";
+}
+
 /* ---------- Sidebar menu ---------- */
 
 function toggleMenu() {
@@ -356,11 +377,43 @@ function renderSquadSection(elementId, groupKey) {
     if (!el) return;
     const players = SQUAD[groupKey];
     el.innerHTML = players.map((p, i) => `
-        <div class="player-row" onclick="openPlayerModal('${groupKey}', ${i})">
+        <div class="player-row" data-name="${p.name.toLowerCase()}" onclick="openPlayerModal('${groupKey}', ${i})">
             <span>${p.name}${p.injury ? ` <span class="lineup-note">— injured</span>` : ""}</span>
             <span class="pos-pill ${posPillClass(p.pos)}">${p.pos}</span>
         </div>
     `).join("");
+}
+
+let squadPositionFilter = "all";
+
+function setSquadPositionFilter(pos) {
+    squadPositionFilter = pos;
+    document.querySelectorAll("#squad-filter-pills .filter-pill").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.filter === pos);
+    });
+    applySquadFilters();
+}
+
+function applySquadFilters() {
+    const searchTerm = (document.getElementById("squad-search")?.value || "").toLowerCase().trim();
+    const sectionMap = { att: "section-att", cm: "section-cm", def: "section-def", gk: "section-gk" };
+
+    Object.keys(sectionMap).forEach(group => {
+        const sectionEl = document.getElementById(sectionMap[group]);
+        if (!sectionEl) return;
+        const groupMatches = squadPositionFilter === "all" || squadPositionFilter === group;
+        let visibleCount = 0;
+
+        sectionEl.querySelectorAll(".player-row").forEach(row => {
+            const name = row.dataset.name || "";
+            const matchesSearch = !searchTerm || name.includes(searchTerm);
+            const visible = groupMatches && matchesSearch;
+            row.style.display = visible ? "flex" : "none";
+            if (visible) visibleCount++;
+        });
+
+        sectionEl.style.display = (groupMatches && (visibleCount > 0 || !searchTerm)) ? "" : "none";
+    });
 }
 
 /* ---------- Cached season stats for player profiles ---------- */
@@ -673,7 +726,7 @@ async function renderSeasonFixtures() {
         }
 
         return `
-            <div class="fixture-row">
+            <div class="fixture-row" data-opponent="${opponent.toLowerCase()}" data-status="${match.status === "FINISHED" ? "played" : "upcoming"}">
                 <span class="fixture-date">${dateStr}</span>
                 <span class="venue-tag">${isHome ? "H" : "A"}</span>
                 <span class="fixture-opponent">${opponent}</span>
@@ -681,6 +734,27 @@ async function renderSeasonFixtures() {
             </div>
         `;
     }).join("");
+}
+
+let fixtureStatusFilter = "all";
+
+function setFixtureStatusFilter(status) {
+    fixtureStatusFilter = status;
+    document.querySelectorAll("#season-filter-pills .filter-pill").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.filter === status);
+    });
+    applyFixtureFilters();
+}
+
+function applyFixtureFilters() {
+    const searchTerm = (document.getElementById("fixture-search")?.value || "").toLowerCase().trim();
+    document.querySelectorAll("#season-fixtures-container .fixture-row").forEach(row => {
+        const opponent = row.dataset.opponent || "";
+        const status = row.dataset.status || "";
+        const matchesSearch = !searchTerm || opponent.includes(searchTerm);
+        const matchesStatus = fixtureStatusFilter === "all" || status === fixtureStatusFilter;
+        row.style.display = (matchesSearch && matchesStatus) ? "flex" : "none";
+    });
 }
 
 /* ---------- Score prediction model ---------- */
@@ -954,6 +1028,161 @@ async function renderSpursNewsLive(count) {
     }).join("");
 }
 
+/* ---------- Fan League (shared predictions via Cloudflare KV) ---------- */
+/*
+   Anyone using this page submits a name + prediction that gets stored
+   centrally and is visible to everyone else on the leaderboard — this
+   is genuinely shared data, unlike the personal predictions elsewhere
+   on the site which live only in your own browser.
+*/
+
+function getFanLeagueName() {
+    return localStorage.getItem("fanLeagueName") || "";
+}
+
+function setFanLeagueName(name) {
+    localStorage.setItem("fanLeagueName", name);
+}
+
+async function submitFanLeaguePrediction(matchId, opponent, matchDate, predHome, predAway) {
+    const name = getFanLeagueName();
+    if (!name) return { error: "No name set" };
+
+    try {
+        const res = await fetch(`${PROXY_BASE}/submit-prediction`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, matchId, opponent, matchDate, predHome, predAway }),
+        });
+        return await res.json();
+    } catch (err) {
+        console.warn("Submit prediction failed:", err);
+        return { error: "Network error" };
+    }
+}
+
+async function fetchAllFanPredictions() {
+    try {
+        const res = await fetch(`${PROXY_BASE}/predictions`);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
+        const data = await res.json();
+        return data.predictions || [];
+    } catch (err) {
+        console.warn("Fetch predictions failed:", err);
+        return null;
+    }
+}
+
+async function fetchMatchResult(matchId) {
+    try {
+        const res = await fetch(`${PROXY_BASE}/match-result?matchId=${matchId}`);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
+        return await res.json();
+    } catch (err) {
+        console.warn("Fetch match result failed:", err);
+        return null;
+    }
+}
+
+async function initFanLeaguePage() {
+    const nameGate = document.getElementById("fan-league-name-gate");
+    const mainArea = document.getElementById("fan-league-main");
+    const savedName = getFanLeagueName();
+
+    if (!savedName) {
+        nameGate.style.display = "block";
+        mainArea.style.display = "none";
+        document.getElementById("fan-league-name-save").onclick = () => {
+            const val = document.getElementById("fan-league-name-input").value.trim();
+            if (!val) return;
+            setFanLeagueName(val);
+            initFanLeaguePage();
+        };
+        return;
+    }
+
+    nameGate.style.display = "none";
+    mainArea.style.display = "block";
+    document.getElementById("fan-league-current-name").textContent = savedName;
+
+    // Load next fixture to build the submission form
+    const live = await fetchNextFixtureLive();
+    const formEl = document.getElementById("fan-league-predict-form");
+
+    if (live) {
+        document.getElementById("fan-league-fixture-label").textContent = `Tottenham vs ${live.opponentName}`;
+        formEl.style.display = "flex";
+        document.getElementById("fan-league-save-btn").onclick = async () => {
+            const h = parseInt(document.getElementById("fan-predHome").value, 10) || 0;
+            const a = parseInt(document.getElementById("fan-predAway").value, 10) || 0;
+            const statusEl = document.getElementById("fan-league-submit-status");
+            statusEl.textContent = "Saving…";
+            const result = await submitFanLeaguePrediction(live.matchId, live.opponentName, live.utcDate, h, a);
+            statusEl.textContent = result.success ? "Saved! Visible to everyone on the leaderboard." : "Something went wrong — try again.";
+            renderFanLeagueLeaderboard();
+        };
+    } else {
+        formEl.style.display = "none";
+    }
+
+    renderFanLeagueLeaderboard();
+}
+
+async function renderFanLeagueLeaderboard() {
+    const container = document.getElementById("fan-league-leaderboard");
+    container.innerHTML = `<p class="lineup-note">Loading leaderboard…</p>`;
+
+    const predictions = await fetchAllFanPredictions();
+    if (predictions === null) {
+        container.innerHTML = `<p class="lineup-note">Leaderboard unavailable right now.</p>`;
+        return;
+    }
+    if (predictions.length === 0) {
+        container.innerHTML = `<p class="lineup-note">No predictions submitted yet — be the first!</p>`;
+        return;
+    }
+
+    // Group by matchId so we only fetch each match's result once
+    const matchIds = [...new Set(predictions.map(p => p.matchId))];
+    const resultsByMatch = {};
+    await Promise.all(matchIds.map(async id => {
+        const data = await fetchMatchResult(id);
+        resultsByMatch[id] = data && data.score && data.status === "FINISHED" ? data : null;
+    }));
+
+    const tally = {}; // name -> { correct, total }
+
+    predictions.forEach(p => {
+        if (!tally[p.name]) tally[p.name] = { correct: 0, total: 0 };
+        const match = resultsByMatch[p.matchId];
+        if (match) {
+            tally[p.name].total++;
+            const isHome = match.homeTeam.id === SPURS_TEAM_ID;
+            const spursScore = isHome ? match.score.fullTime.home : match.score.fullTime.away;
+            const oppScore = isHome ? match.score.fullTime.away : match.score.fullTime.home;
+            const actualOutcome = outcomeOf(spursScore, oppScore);
+            const predOutcome = outcomeOf(p.predHome, p.predAway);
+            if (actualOutcome === predOutcome) tally[p.name].correct++;
+        }
+    });
+
+    const ranked = Object.entries(tally)
+        .map(([name, t]) => ({ name, ...t, pct: t.total > 0 ? Math.round((t.correct / t.total) * 100) : null }))
+        .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+
+    if (ranked.length === 0) {
+        container.innerHTML = `<p class="lineup-note">Predictions are in, but no matches have finished yet to score them.</p>`;
+        return;
+    }
+
+    container.innerHTML = ranked.map((r, i) => `
+        <div class="player-row" style="cursor:default;">
+            <span>#${i + 1} ${r.name}</span>
+            <span class="kickoff-line" style="text-align:right;">${r.pct !== null ? `${r.correct}/${r.total} correct (${r.pct}%)` : "No resolved predictions yet"}</span>
+        </div>
+    `).join("");
+}
+
 function submitResult(id) {
     const home = parseInt(document.getElementById(`actualHome-${id}`).value, 10);
     const away = parseInt(document.getElementById(`actualAway-${id}`).value, 10);
@@ -1033,3 +1262,5 @@ function renderPredictionHistory() {
         }
     }
 }
+
+applyStoredTheme();

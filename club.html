@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Squad — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
     <nav class="sidebar" id="sidebar">
         <a href="index.html">Home</a>
@@ -16,6 +18,7 @@
         <a href="season.html">Season</a>
         <a href="stats.html">Player Stats</a>
         <a href="news.html">Spurs News</a>
+        <a href="league.html">Fan League</a>
         <a href="about.html">About This Project</a>
     </nav>
 
@@ -36,24 +39,38 @@
     </section>
 
     <section>
+        <h2>Find a Player</h2>
+        <div class="filter-bar">
+            <input type="text" id="squad-search" class="search-input" placeholder="Search by name…" oninput="applySquadFilters()">
+            <div class="filter-pills" id="squad-filter-pills">
+                <button class="filter-pill active" data-filter="all" onclick="setSquadPositionFilter('all')">All</button>
+                <button class="filter-pill" data-filter="att" onclick="setSquadPositionFilter('att')">Attack</button>
+                <button class="filter-pill" data-filter="cm" onclick="setSquadPositionFilter('cm')">Midfield</button>
+                <button class="filter-pill" data-filter="def" onclick="setSquadPositionFilter('def')">Defence</button>
+                <button class="filter-pill" data-filter="gk" onclick="setSquadPositionFilter('gk')">Goalkeepers</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="section-att">
         <h2>Attack</h2>
         <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
         <div id="squad-att"></div>
     </section>
 
-    <section>
+    <section id="section-cm">
         <h2>Central Midfield</h2>
         <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
         <div id="squad-cm"></div>
     </section>
 
-    <section>
+    <section id="section-def">
         <h2>Defence</h2>
         <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
         <div id="squad-def"></div>
     </section>
 
-    <section>
+    <section id="section-gk">
         <h2>Goalkeepers</h2>
         <p class="kickoff-line" style="margin-bottom:10px;">Tap a player for their profile</p>
         <div id="squad-gk"></div>

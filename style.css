@@ -780,7 +780,77 @@ section h2 {
     margin-bottom: 4px;
 }
 
-/* --- League table scroll wrapper (mobile safety net) --- */
+/* --- Search / filter bar --- */
+
+.filter-bar {
+    margin-bottom: 16px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: #050814;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-pill {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.filter-pill:hover {
+    border-color: var(--accent);
+}
+
+.filter-pill.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* --- Fan League name gate --- */
+
+.name-gate {
+    max-width: 340px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.name-gate input {
+    width: 100%;
+    padding: 12px 14px;
+    background: #050814;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
 
 .table-scroll {
     overflow-x: auto;
@@ -924,4 +994,74 @@ section h2 {
         width: 44px;
         padding: 6px;
     }
+}
+
+/* =========================================================
+   Light "Matchday" theme — toggled via [data-theme="light"]
+   on <html>. Navy becomes the accent instead of the amber
+   floodlight glow, since glow effects don't read well on a
+   bright background.
+   ========================================================= */
+
+html[data-theme="light"] {
+    --bg: #f3f5fb;
+    --bg-glow: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(19,34,87,0.07), transparent 60%);
+    --surface: #ffffff;
+    --surface-2: #eef1f8;
+    --line: rgba(19,34,87,0.12);
+    --text: #10162f;
+    --text-muted: #5b6284;
+    --accent: #132257;
+    --accent-soft: rgba(19,34,87,0.08);
+    --pitch: #1f8a4c;
+    --pitch-soft: rgba(31,138,76,0.12);
+    --loss: #c0392b;
+}
+
+html[data-theme="light"] #countdown,
+html[data-theme="light"] .model-score {
+    text-shadow: none;
+}
+
+html[data-theme="light"] .scoreboard {
+    background: #0d152f;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .scoreboard #countdown {
+    color: #f0a83c;
+    text-shadow: 0 0 10px rgba(240,168,60,0.4);
+}
+
+html[data-theme="light"] .crest {
+    box-shadow: 0 0 0 3px rgba(19,34,87,0.08);
+}
+
+html[data-theme="light"] .pitch-svg-wrap {
+    background: #0d2818;
+}
+
+html[data-theme="light"] .tag.pending {
+    color: var(--text-muted);
+}
+
+/* --- Theme toggle button --- */
+
+.theme-toggle-btn {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 1001;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 10px 13px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+}
+
+.theme-toggle-btn:hover {
+    border-color: var(--accent);
 }
