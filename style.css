@@ -1103,3 +1103,112 @@ html[data-theme="light"] .tag.pending {
     border-radius: 2px;
     margin-right: 6px;
 }
+
+/* --- Season projection bars --- */
+
+.proj-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+.proj-key {
+    display: inline-block;
+    width: 12px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.proj-key-bar { background: var(--accent); }
+.proj-key-range { background: var(--surface-2); border: 1px solid var(--line); }
+.proj-key-tick { background: var(--pitch); width: 2px; }
+
+.proj-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.proj-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 4px;
+    border-radius: 6px;
+}
+
+.proj-row-spurs {
+    background: var(--accent-soft);
+}
+
+.proj-pos {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    width: 20px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.proj-name {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    width: 90px;
+    flex-shrink: 0;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.proj-track {
+    position: relative;
+    flex-grow: 1;
+    height: 14px;
+    background: #050814;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    overflow: visible;
+}
+
+.proj-range {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: var(--surface-2);
+    border-radius: 4px;
+}
+
+.proj-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    opacity: 0.85;
+}
+
+.proj-current-tick {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 18px;
+    background: var(--pitch);
+}
+
+.proj-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text);
+    width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+}

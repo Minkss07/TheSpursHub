@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Season Projection — Spurs Hub</title>
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark");</script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()">☀</button>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <nav class="sidebar" id="sidebar">
+        <a href="index.html">Home</a>
+        <a href="club.html">Squad</a>
+        <a href="season.html">Season</a>
+        <a href="stats.html">Player Stats</a>
+        <a href="news.html">Spurs News</a>
+        <a href="league.html">Fan League</a>
+        <a href="backtest.html">Model Testing</a>
+        <a href="projection.html" class="active">Season Projection</a>
+        <a href="about.html">About This Project</a>
+    </nav>
+
+    <header>
+        <p class="eyebrow">Monte Carlo Simulation</p>
+        <h1>Season Projection</h1>
+        <p class="subtitle">The model, played forward 3,000 times</p>
+    </header>
+
+    <section>
+        <h2>How This Works</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:12px;">
+            The same prediction model used elsewhere on this site is applied to every remaining fixture in the
+            season, giving a win/draw/loss probability for each one. The season is then simulated thousands of
+            times — each time, every remaining match is randomly resolved according to those probabilities, and
+            points are added up for all 20 teams.
+        </p>
+        <p class="news-item" style="border:none; padding:0;">
+            Averaging across thousands of simulated seasons gives a projected final points total for every team,
+            along with a realistic range of outcomes rather than one falsely precise number.
+        </p>
+    </section>
+
+    <section style="text-align:center;">
+        <button id="projection-run-btn" onclick="runAndRenderProjection()"
+            style="background:var(--accent); color:#1a1200; border:none; padding:12px 28px; border-radius:8px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:0.9rem; cursor:pointer;">
+            Run Projection
+        </button>
+        <p class="predict-status" id="projection-status" style="margin-top:12px;">
+            Simulates 3,000 full seasons — takes a few seconds.
+        </p>
+    </section>
+
+    <section>
+        <h2>Projected Final Table</h2>
+        <div id="projection-results">
+            <p class="lineup-note">Run the projection to see results.</p>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

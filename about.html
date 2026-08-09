@@ -20,6 +20,7 @@
         <a href="news.html">Spurs News</a>
         <a href="league.html">Fan League</a>
         <a href="backtest.html">Model Testing</a>
+        <a href="projection.html">Season Projection</a>
         <a href="about.html" class="active">About This Project</a>
     </nav>
 
@@ -69,6 +70,32 @@
 
         <p class="news-item" style="border:none; padding:0; margin-top:16px;">
             Rather than guessing one scoreline, the model estimates expected goals for each side in that specific fixture, then derives the probability of every scoreline from 0-0 up to 8-8. The Dixon-Coles correction is applied because plain Poisson assumes the two teams' goals are independent, which measurably misprices low scores (0-0, 1-0, 0-1, 1-1).
+        </p>
+    </section>
+
+    <section>
+        <h2>Squad-Value-Informed Priors</h2>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            The base model only sees historical scorelines, which means it's blind to squad rebuilds and managerial
+            change — a team that spent heavily over the summer looks identical to one that didn't, until enough
+            new-season matches accumulate. To partially address this, teams with thin match data are now shrunk
+            toward a target informed by squad market value, rather than a flat league average.
+        </p>
+        <p class="news-item" style="border:none; padding:0; margin-bottom:14px;">
+            This is a real, tested relationship: pre-season 2025/26 squad values were regressed against that
+            season's actual final points across all 20 clubs — <strong>r = 0.669, R² = 44.8%</strong>. Squad value
+            explains close to half the variance in final league position, which is a genuine signal.
+        </p>
+        <p class="news-item" style="border:none; padding:0;">
+            One honest note on how this is scoped: the value regression is fit using a completed season's actual
+            results, which means it can only be used safely for <strong>live, forward-looking predictions</strong> —
+            using the finished 2025/26 season to inform 2026/27 has no lookahead problem at all. Using it inside the
+            backtest or parameter sweep would be different: those replay past matches, and the regression would be
+            peeking at outcomes it's being tested against. So it's deliberately, unconditionally disabled inside
+            both — the Model Testing page's numbers reflect the model without this feature, exactly as originally
+            validated. Data freshness is also uneven: Tottenham's value is summed directly from this site's own
+            current squad data, while the other 19 clubs use last August's figures, since a clean current
+            full-league dataset wasn't obtainable.
         </p>
     </section>
 

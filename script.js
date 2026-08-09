@@ -242,6 +242,25 @@ const MATCHES = [
                 subs: ["Acheampong (on 80, for Palestra)", "Tosin (on 80, for Fofana)", "Sarr (on 80, for Colwill)", "Anselmino (on 62, for Hato)", "Watson (on 80, for Essugo)", "Nicoll-Jazuli (on 46, for Lavia)", "Satpayev (on 69, for Estêvão)", "Walsh (on 80, for Palmer)", "Kellyman (on 80, for Gittens)", "Delap (on 80, for João Pedro)"]
             }
         }
+    },
+    {
+        id: "getafe-2026",
+        opponent: "getafe",
+        date: "8 August 2026",
+        competition: "Pre-season friendly, Hotspur Way",
+        scoreline: "Tottenham 1 - 1 Getafe",
+        resultTag: "D",
+        goals: [
+            { teamKey: "getafe", scorer: "Alberto Risco", assist: "Curro Burgos", minute: "~60" },
+            { teamKey: "tottenham", scorer: "Conor Gallagher", assist: null, minute: 70 }
+        ],
+        note: "Getafe's full substitutions weren't clearly reported (only Satriano and Risco coming off for Mayoral and Martín is confirmed) — Getafe's lineup is omitted below rather than guessed.",
+        lineups: {
+            tottenham: {
+                starting: ["Antonín Kinsky", "Archie Gray", "Jan Paul van Hecke", "Ben Davies", "Andy Robertson", "Conor Gallagher", "Sandro Tonali", "Mikey Moore", "Lucas Bergvall", "Mathys Tel", "Richarlison"],
+                subs: ["Substitution details not clearly reported for this match."]
+            }
+        }
     }
 ];
 
@@ -803,6 +822,7 @@ const MODEL_CONFIG = {
     halfLifeDays: 220,          // recency: a match this old counts half as much
     previousSeasonWeight: 0.8,  // extra discount on last season (squad turnover)
     shrinkageMatches: 6,        // how much data before a team's own numbers are trusted
+    useValuePrior: true,        // squad-value-informed shrinkage target — see note below
     maxGoals: 8,                // scoreline grid size
     rho: -0.05,                 // Dixon-Coles low-score correction strength
     currentSeason: 2026,
@@ -849,6 +869,98 @@ function toLeanMatches(apiMatches) {
 
 /* asOfTs: matches are aged relative to this moment. Passing the kickoff
    time of the fixture being predicted is what prevents lookahead bias. */
+/* ---------- Squad-value-informed shrinkage ---------- */
+/*
+   When a team has thin match data, the model previously shrank its
+   rating toward 1.0 (plain league average). This uses squad market
+   value as a better-informed target instead — teams that spent
+   heavily are expected to perform more like other big-spending teams,
+   not like the generic average.
+
+   This is a REAL, tested relationship, not an assumption: pre-season
+   2025/26 squad values were regressed against that season's actual
+   final points across all 20 clubs. Result: r = 0.669, R² = 44.8% —
+   squad value explains close to half the variance in final league
+   position. That is a genuine signal, not noise.
+
+   Two honest limitations, stated here rather than hidden:
+
+   1. DATA FRESHNESS IS UNEVEN. Tottenham's value below is summed
+      directly from this site's own current player-by-player squad
+      data (Aug 2026). The other 19 clubs use last August's figures,
+      since a clean current full-league dataset wasn't obtainable.
+      This is a real limitation, not a deliberate thumb on the scale —
+      Tottenham's own value fell in the most recent update before this
+      summer's signings landed, so using accurate data doesn't
+      automatically flatter them.
+
+   2. THIS ISN'T WALK-FORWARD TESTED like the rest of the model. The
+      backtest and parameter sweep validate against many matches with
+      proper train/test separation. This rests on one season's
+      cross-sectional relationship across 20 teams — a real signal,
+      but a thinner one. Properly walk-forward testing it would need
+      squad-value snapshots from several prior seasons, which weren't
+      gathered here.
+
+   Newly promoted teams (no entry below) fall back to plain 1.0
+   shrinkage automatically — appropriate, since they have no
+   established top-flight squad value to compare.
+*/
+
+// Regression fit on 2025/26: points = VALUE_REGRESSION.a + VALUE_REGRESSION.b * value(£m)
+const VALUE_REGRESSION = { a: 33.16, b: 0.03522 };
+
+// Squad values in £M. Sourced Aug 2025 (Transfermarkt via Sky Sports),
+// except Tottenham which is summed live from this site's own squad data.
+const SQUAD_VALUES_GBP_M = {
+    "arsenal": 1100,
+    "manchester city": 1100, "man city": 1100,
+    "chelsea": 1000,
+    "manchester united": 769, "man united": 769, "man utd": 769,
+    "liverpool": 912.5,
+    "newcastle": 625.5,
+    "tottenham": 799.8, "spurs": 799.8,
+    "aston villa": 462.1,
+    "nottingham forest": 441.9, "nott'm forest": 441.9,
+    "brighton": 499.4,
+    "everton": 293.5,
+    "crystal palace": 394.9,
+    "bournemouth": 338.2,
+    "fulham": 287,
+    "brentford": 355.9,
+    "leeds": 248.8,
+    "sunderland": 223
+};
+
+function getSquadValue(teamName) {
+    const norm = (teamName || "").toLowerCase();
+    for (const key in SQUAD_VALUES_GBP_M) {
+        if (norm.includes(key)) return SQUAD_VALUES_GBP_M[key];
+    }
+    return null;
+}
+
+// Cached once per session — the 17 known clubs' values don't change mid-session
+let cachedAvgPredictedPoints = null;
+function getAvgPredictedPoints() {
+    if (cachedAvgPredictedPoints) return cachedAvgPredictedPoints;
+    const values = Object.values(SQUAD_VALUES_GBP_M);
+    const uniqueValues = [...new Set(values)]; // dedupe alias entries (e.g. "man city"/"manchester city")
+    const predicted = uniqueValues.map(v => VALUE_REGRESSION.a + VALUE_REGRESSION.b * v);
+    cachedAvgPredictedPoints = predicted.reduce((s, v) => s + v, 0) / predicted.length;
+    return cachedAvgPredictedPoints;
+}
+
+// Returns a "strength" multiplier: 1.0 = average, >1 = above average.
+// Normalised so the average across the 17 known clubs is ~1.0.
+function getValueImpliedStrength(teamName) {
+    const value = getSquadValue(teamName);
+    if (value === null) return null; // no data — caller falls back to 1.0
+    const predictedPoints = VALUE_REGRESSION.a + VALUE_REGRESSION.b * value;
+    const strength = predictedPoints / getAvgPredictedPoints();
+    return Math.max(0.55, Math.min(1.75, strength)); // sane bounds
+}
+
 function buildLeagueModel(matchGroups, asOfTs, cfg) {
     cfg = cfg || MODEL_CONFIG;
     const reference = asOfTs || Date.now();
@@ -902,19 +1014,25 @@ function buildLeagueModel(matchGroups, asOfTs, cfg) {
         const t = teams[id];
         const hw = t.homeWeight, aw = t.awayWeight;
 
-        // Shrink toward 1.0 (league average) when the sample is thin.
+        // Shrink toward a squad-value-informed target when known AND enabled,
+        // otherwise plain 1.0 (league average). This is disabled during
+        // backtesting/tuning — see the note above VALUE_REGRESSION for why.
+        const strength = cfg.useValuePrior ? getValueImpliedStrength(t.name) : null;
+        const attackTarget = strength !== null ? strength : 1;
+        const defenceTarget = strength !== null ? 1 / strength : 1;
+
         const hShrink = hw / (hw + k);
         const aShrink = aw / (aw + k);
 
-        const rawAttackHome  = hw > 0 ? (t.homeFor / hw) / leagueHomeAvg : 1;
-        const rawDefenceHome = hw > 0 ? (t.homeAgainst / hw) / leagueAwayAvg : 1;
-        const rawAttackAway  = aw > 0 ? (t.awayFor / aw) / leagueAwayAvg : 1;
-        const rawDefenceAway = aw > 0 ? (t.awayAgainst / aw) / leagueHomeAvg : 1;
+        const rawAttackHome  = hw > 0 ? (t.homeFor / hw) / leagueHomeAvg : attackTarget;
+        const rawDefenceHome = hw > 0 ? (t.homeAgainst / hw) / leagueAwayAvg : defenceTarget;
+        const rawAttackAway  = aw > 0 ? (t.awayFor / aw) / leagueAwayAvg : attackTarget;
+        const rawDefenceAway = aw > 0 ? (t.awayAgainst / aw) / leagueHomeAvg : defenceTarget;
 
-        t.attackHome  = 1 + (rawAttackHome  - 1) * hShrink;
-        t.defenceHome = 1 + (rawDefenceHome - 1) * hShrink;
-        t.attackAway  = 1 + (rawAttackAway  - 1) * aShrink;
-        t.defenceAway = 1 + (rawDefenceAway - 1) * aShrink;
+        t.attackHome  = attackTarget  + (rawAttackHome  - attackTarget)  * hShrink;
+        t.defenceHome = defenceTarget + (rawDefenceHome - defenceTarget) * hShrink;
+        t.attackAway  = attackTarget  + (rawAttackAway  - attackTarget)  * aShrink;
+        t.defenceAway = defenceTarget + (rawDefenceAway - defenceTarget) * aShrink;
         t.dataConfidence = (hShrink + aShrink) / 2; // 0 = no data, →1 = well supported
     });
 
@@ -1144,7 +1262,13 @@ function rankedProbabilityScore(probs, actualIdx) {
 }
 
 async function runBacktest(testSeason, priorSeason, onProgress, cfg) {
-    cfg = cfg || MODEL_CONFIG;
+    // Backtests replay a PAST season. The squad-value prior is fit using
+    // THAT season's own final results, so using it here would mean the
+    // model gets a peek at outcomes it's being tested against — real
+    // lookahead bias. It is always disabled for backtesting, regardless
+    // of what config is passed in, and only ever used for live/forward
+    // predictions of the current, not-yet-played season.
+    cfg = Object.assign({}, cfg || MODEL_CONFIG, { useValuePrior: false });
     const [testRaw, priorRaw] = await Promise.all([
         fetchCompetitionMatches(testSeason),
         fetchCompetitionMatches(priorSeason)
@@ -1651,6 +1775,219 @@ function pairedComparison(lossesA, lossesB) {
 
 function isAtGridBoundary(value, gridValues) {
     return value === gridValues[0] || value === gridValues[gridValues.length - 1];
+}
+
+/* ---------- Season projection (Monte Carlo simulation) ---------- */
+/*
+   Extends the same Dixon-Coles model into a full-season projection.
+   For every remaining fixture, the model's win/draw/loss probabilities
+   are computed once. The season is then simulated thousands of times,
+   each time sampling a random outcome for every remaining match from
+   those fixed probabilities and accumulating points — the standard
+   Monte Carlo approach used in real sports analytics.
+
+   Important honesty note, surfaced on the page itself: this early in
+   the season, almost every match is still unplayed, so the projection
+   rests entirely on prior-season data and carries very wide
+   uncertainty. The range shown (10th-90th percentile) reflects that
+   explicitly rather than presenting one confident number.
+*/
+
+const SIMULATION_RUNS = 3000;
+
+async function fetchAllSeasonMatches(season) {
+    try {
+        const res = await fetch(`${PROXY_BASE}/competition-matches?season=${season}`);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
+        const data = await res.json();
+        return data.matches || [];
+    } catch (err) {
+        console.warn("Season matches fetch failed:", err);
+        return null;
+    }
+}
+
+function sampleOutcome(pHome, pDraw) {
+    const r = Math.random();
+    if (r < pHome) return "H";
+    if (r < pHome + pDraw) return "D";
+    return "A";
+}
+
+function percentile(sortedArr, p) {
+    const idx = Math.min(sortedArr.length - 1, Math.floor(p * sortedArr.length));
+    return sortedArr[idx];
+}
+
+async function runSeasonProjection(onProgress) {
+    const [allMatches, standings, model] = await Promise.all([
+        fetchAllSeasonMatches(MODEL_CONFIG.currentSeason),
+        fetchLeagueTableLive(),
+        getLeagueModel()
+    ]);
+
+    if (!allMatches || !standings || !model) {
+        return { error: "Couldn't load the data needed for a projection right now." };
+    }
+
+    const remaining = allMatches.filter(m => m.status === "SCHEDULED" || m.status === "TIMED");
+    const playedSoFar = allMatches.filter(m => m.status === "FINISHED").length;
+
+    if (remaining.length === 0) {
+        return { error: "No remaining fixtures found for this season." };
+    }
+
+    // Compute each remaining fixture's outcome probabilities ONCE —
+    // this is the expensive step (Poisson + Dixon-Coles per fixture),
+    // done 380-ish times, not per simulation run.
+    const fixtureProbs = remaining.map(m => {
+        const f = predictFixture(model, m.homeTeam.id, m.awayTeam.id);
+        return { homeId: m.homeTeam.id, awayId: m.awayTeam.id, pHome: f.pHomeWin, pDraw: f.pDraw };
+    });
+
+    // Current points baseline, keyed by team id
+    const basePoints = {};
+    const teamMeta = {};
+    standings.forEach(row => {
+        basePoints[row.team.id] = row.points;
+        teamMeta[row.team.id] = { name: row.team.shortName || row.team.name, id: row.team.id };
+    });
+    // Any team not yet in the table (shouldn't happen mid-table, safety net)
+    fixtureProbs.forEach(f => {
+        [f.homeId, f.awayId].forEach(id => {
+            if (!(id in basePoints)) { basePoints[id] = 0; teamMeta[id] = { name: "Team " + id, id: id }; }
+        });
+    });
+
+    const teamIds = Object.keys(basePoints).map(Number);
+    const finalPointsByTeam = {};
+    teamIds.forEach(id => finalPointsByTeam[id] = []);
+
+    for (let sim = 0; sim < SIMULATION_RUNS; sim++) {
+        const points = Object.assign({}, basePoints);
+        for (const f of fixtureProbs) {
+            const outcome = sampleOutcome(f.pHome, f.pDraw);
+            if (outcome === "H") points[f.homeId] += 3;
+            else if (outcome === "A") points[f.awayId] += 3;
+            else { points[f.homeId] += 1; points[f.awayId] += 1; }
+        }
+        teamIds.forEach(id => finalPointsByTeam[id].push(points[id]));
+
+        if (onProgress && sim % 400 === 0) {
+            onProgress(sim, SIMULATION_RUNS);
+            await new Promise(r => setTimeout(r, 0));
+        }
+    }
+
+    const results = teamIds.map(id => {
+        const arr = finalPointsByTeam[id].slice().sort((a, b) => a - b);
+        const mean = arr.reduce((s, v) => s + v, 0) / arr.length;
+        return {
+            id: id,
+            name: teamMeta[id].name,
+            currentPoints: basePoints[id],
+            projectedMean: mean,
+            p10: percentile(arr, 0.10),
+            p90: percentile(arr, 0.90)
+        };
+    }).sort((a, b) => b.projectedMean - a.projectedMean);
+
+    return {
+        results: results,
+        remainingFixtures: remaining.length,
+        playedSoFar: playedSoFar,
+        simulations: SIMULATION_RUNS
+    };
+}
+
+function renderProjectionBars(results) {
+    const maxPoints = Math.max(...results.map(r => r.p90), 1);
+
+    return results.map((r, i) => {
+        const isSpurs = r.id === SPURS_TEAM_ID;
+        const barPct = (r.projectedMean / maxPoints) * 100;
+        const rangeLeftPct = (r.p10 / maxPoints) * 100;
+        const rangeWidthPct = ((r.p90 - r.p10) / maxPoints) * 100;
+        const currentPct = (r.currentPoints / maxPoints) * 100;
+
+        return `
+            <div class="proj-row ${isSpurs ? "proj-row-spurs" : ""}">
+                <span class="proj-pos">${i + 1}</span>
+                <span class="proj-name">${r.name}</span>
+                <div class="proj-track">
+                    <div class="proj-range" style="left:${rangeLeftPct}%; width:${rangeWidthPct}%;"></div>
+                    <div class="proj-bar" style="width:${barPct}%;"></div>
+                    <div class="proj-current-tick" style="left:${currentPct}%;" title="Current points: ${r.currentPoints}"></div>
+                </div>
+                <span class="proj-value">${Math.round(r.projectedMean)}</span>
+            </div>
+        `;
+    }).join("");
+}
+
+async function runAndRenderProjection() {
+    const btn = document.getElementById("projection-run-btn");
+    const status = document.getElementById("projection-status");
+    const out = document.getElementById("projection-results");
+    if (!out) return;
+
+    btn.disabled = true;
+    btn.textContent = "Simulating…";
+    out.innerHTML = "";
+    status.textContent = "Loading fixtures and current standings…";
+
+    const r = await runSeasonProjection((done, total) => {
+        status.textContent = `Simulating season ${done} of ${total}…`;
+    });
+
+    btn.disabled = false;
+    btn.textContent = "Run Projection";
+
+    if (r.error) {
+        status.textContent = "";
+        out.innerHTML = `<p class="lineup-note">${r.error}</p>`;
+        return;
+    }
+
+    status.textContent = `${r.simulations.toLocaleString()} simulated seasons, projecting ${r.remainingFixtures} remaining fixtures (${r.playedSoFar} already played).`;
+
+    const spursRow = r.results.find(x => x.id === SPURS_TEAM_ID);
+    const spursPos = r.results.findIndex(x => x.id === SPURS_TEAM_ID) + 1;
+
+    out.innerHTML = `
+        ${spursRow ? `
+        <div class="stat-grid" style="margin-bottom:20px;">
+            <div class="stat-box">
+                <div class="stat-value">${spursPos}${spursPos === 1 ? "st" : spursPos === 2 ? "nd" : spursPos === 3 ? "rd" : "th"}</div>
+                <div class="stat-label">Projected finish</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${Math.round(spursRow.projectedMean)}</div>
+                <div class="stat-label">Projected points</div>
+            </div>
+        </div>
+        <p class="lineup-note" style="text-align:center; margin-bottom:18px;">
+            Likely range: ${spursRow.p10}–${spursRow.p90} points (10th–90th percentile across ${r.simulations.toLocaleString()} simulated seasons)
+        </p>
+        ` : ""}
+
+        <div class="proj-legend">
+            <span><i class="proj-key proj-key-bar"></i>Projected points</span>
+            <span><i class="proj-key proj-key-range"></i>Likely range</span>
+            <span><i class="proj-key proj-key-tick"></i>Current points</span>
+        </div>
+
+        <div class="proj-list">
+            ${renderProjectionBars(r.results)}
+        </div>
+
+        <p class="lineup-note" style="line-height:1.7; margin-top:16px;">
+            This early in the season, ${r.playedSoFar} of ${r.playedSoFar + r.remainingFixtures} matches have been played
+            — the projection for most teams rests almost entirely on prior-season ratings, not evidence from this
+            season. That is exactly why the range is shown rather than a single confident number, and why it will
+            narrow considerably as real matches accumulate.
+        </p>
+    `;
 }
 
 /* ---------- Player stats (top scorers) ---------- */
